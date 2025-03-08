@@ -1,0 +1,3 @@
+[submodule "syntax-highlighting"]
+	path = syntax-highlighting
+	url = git@github.com:Wing-summer/syntax-highlighting.git
