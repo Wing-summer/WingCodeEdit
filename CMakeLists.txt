@@ -14,7 +14,10 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets PrintSupport)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PrintSupport)
 
 add_subdirectory(syntax-highlighting)
-add_subdirectory(WingCodeEditExample)
+
+if(BUILD_EXAMPLES)
+    add_subdirectory(WingCodeEditExample)
+endif()
 
 add_library(
     WingCodeEdit STATIC

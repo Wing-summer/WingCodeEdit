@@ -1319,7 +1319,7 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
                     cursor.endEditBlock();
                 } else {
                     cursor.beginEditBlock();
-                    cursor.insertText(text + text);
+                    cursor.insertText(text + getPairedCloseChar(text));
                     cursor.endEditBlock();
                     cursor.movePosition(QTextCursor::PreviousCharacter,
                                         QTextCursor::MoveAnchor);
