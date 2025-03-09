@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     ce->setShowFolding(true);
     ce->setShowWhitespace(true);
     ce->setShowSymbolMark(true);
+    ce->setAutoCloseChar(true);
 
     {
         auto a = new QAction("SymbolMarking", this);

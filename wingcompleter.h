@@ -18,6 +18,7 @@
 
 #include <QCompleter>
 #include <QSortFilterProxyModel>
+#include <QTextCursor>
 
 class WingCodeEdit;
 class WingCodePopup;
@@ -28,8 +29,28 @@ public:
     explicit WingCompleter(WingCodeEdit *editor);
     virtual ~WingCompleter();
 
+public:
+    QStringList triggerList() const;
+
+    qint32 triggerAmount() const;
+    void setTriggerAmount(qint32 newTriggerAmount);
+
+    virtual QString wordSeperators() const;
+
+public slots:
+    void setTriggerList(const QStringList &triggers);
+
+    void trigger(const QString &trigger, const QString &content,
+                 const QRect &cursorRect);
+
+protected:
+    virtual void processTrigger(const QString &trigger, const QString &content);
+
 private:
     WingCodePopup *m_popUp;
+
+    QStringList m_triggerList;
+    qint32 m_triggerAmount;
 };
 
 #endif // WINGCOMPLETER_H

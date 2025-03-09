@@ -40,6 +40,9 @@ void WingLineMargin::paintEvent(QPaintEvent *paintEvent) {
         return;
 
     QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
     painter.fillRect(paintEvent->rect(), m_editor->m_lineMarginBg);
 
     QTextBlock block = m_editor->firstVisibleBlock();

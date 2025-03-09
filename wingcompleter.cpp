@@ -18,7 +18,10 @@
 #include "wingcodeedit.h"
 #include "wingcodepopup.h"
 
-WingCompleter::WingCompleter(WingCodeEdit *editor) : QCompleter(editor) {
+#include <QScrollBar>
+
+WingCompleter::WingCompleter(WingCodeEdit *editor)
+    : QCompleter(editor), m_triggerAmount(3) {
     setCompletionMode(QCompleter::PopupCompletion);
     setModelSorting(QCompleter::CaseInsensitivelySortedModel);
     setCaseSensitivity(Qt::CaseInsensitive);
@@ -33,3 +36,47 @@ WingCompleter::WingCompleter(WingCodeEdit *editor) : QCompleter(editor) {
 }
 
 WingCompleter::~WingCompleter() { m_popUp->deleteLater(); }
+
+QStringList WingCompleter::triggerList() const { return m_triggerList; }
+
+void WingCompleter::setTriggerList(const QStringList &triggers) {
+    m_triggerList = triggers;
+}
+
+void WingCompleter::trigger(const QString &trigger, const QString &content,
+                            const QRect &cursorRect) {
+    processTrigger(trigger, content);
+    auto cr = cursorRect;
+    cr.setWidth(m_popUp->sizeHintForColumn(0) +
+                m_popUp->verticalScrollBar()->sizeHint().width());
+    popup()->setCurrentIndex(completionModel()->index(0, 0));
+    complete(cr); // popup it up!
+}
+
+void WingCompleter::processTrigger(const QString &trigger,
+                                   const QString &content) {
+    Q_UNUSED(trigger);
+    auto seps = wordSeperators();
+    auto r =
+        std::find_if(content.crbegin(), content.crend(),
+                     [seps](const QChar &ch) { return seps.contains(ch); });
+    auto idx = std::distance(r, content.crend());
+    setCompletionPrefix(content.
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+                        mid
+#else
+                        sliced
+#endif
+                        (idx));
+}
+
+QString WingCompleter::wordSeperators() const {
+    static QString eow(QStringLiteral("~!@#$%^&*()_+{}|:\"<>?,./;'[]\\-="));
+    return eow;
+}
+
+qint32 WingCompleter::triggerAmount() const { return m_triggerAmount; }
+
+void WingCompleter::setTriggerAmount(qint32 newTriggerAmount) {
+    m_triggerAmount = newTriggerAmount;
+}

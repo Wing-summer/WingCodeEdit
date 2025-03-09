@@ -17,6 +17,7 @@
 #define WINGCODEEDIT_H
 
 #include <QPlainTextEdit>
+#include <QTextBlock>
 
 namespace KSyntaxHighlighting {
 class Repository;
@@ -25,8 +26,9 @@ class Theme;
 } // namespace KSyntaxHighlighting
 
 class WingSyntaxHighlighter;
-class QPrinter;
 class WingCompleter;
+class WingLineMargin;
+class QPrinter;
 
 class WingCodeEdit : public QPlainTextEdit {
     Q_OBJECT
@@ -52,6 +54,7 @@ private:
         LongLineEdge = (1U << 5),
         ShowFolding = (1U << 6),
         ShowSymbolMark = (1U << 7),
+        AutoCloseChar = (1U << 8)
     };
     Q_DECLARE_FLAGS(WingCodeEditConfigs, WingCodeEditConfig)
 
@@ -65,11 +68,12 @@ public:
     int lineMarginWidth() const;
     int symbolMarkSize() const;
     int realSymbolMarkSizeWithPadding() const;
+
     bool showLineNumbers() const;
     bool showFolding() const;
-
     bool showSymbolMark() const;
     bool showWhitespace() const;
+
     bool scrollPastEndOfFile() const;
     bool highlightCurrentLine() const;
 
@@ -88,14 +92,11 @@ public:
     void setAutoIndent(bool ai);
     bool autoIndent() const;
 
-    void setShowLongLineEdge(bool show);
     bool showLongLineEdge() const;
-    void setLongLineWidth(int pos);
     int longLineWidth() const;
-    void setShowIndentGuides(bool show);
     bool showIndentGuides() const;
-    void setWordWrap(bool wrap);
     bool wordWrap() const;
+    bool autoCloseChar() const;
 
     QTextCursor textSearch(const QTextCursor &start, const SearchParams &params,
                            bool matchFirst, bool reverse = false,
@@ -119,7 +120,6 @@ public:
     WingCompleter *completer() const;
     WingSyntaxHighlighter *highlighter() const;
 
-    QString textUnderCursor() const;
     QString symbolMark(int line) const;
 
 signals:
@@ -131,6 +131,12 @@ public slots:
     void setShowFolding(bool show);
     void setShowSymbolMark(bool show);
 
+    void setShowLongLineEdge(bool show);
+    void setLongLineWidth(int pos);
+    void setShowIndentGuides(bool show);
+    void setWordWrap(bool wrap);
+
+    void setAutoCloseChar(bool b);
     void setShowWhitespace(bool show);
     void setScrollPastEndOfFile(bool scroll);
     void setHighlightCurrentLine(bool show);
@@ -148,6 +154,19 @@ public slots:
 
     void addSymbolMark(int line, const QString &id);
     void removeSymbolMark(int line);
+
+private:
+    QString cursorNextChar(const QTextCursor &cursor);
+    QString cursorPrevChar(const QTextCursor &cursor);
+    QString textUnderCursor() const;
+
+private:
+    bool isAutoCloseChar(const QString &ch) const;
+    bool isPairedCloseChar(const QString &ch) const;
+    QString getPairedBeginChar(const QString &ch) const;
+    QString getPairedCloseChar(const QString &ch) const;
+
+    QTextBlock getCursorPositionBlock(int position) const;
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
