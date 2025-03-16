@@ -23,9 +23,9 @@
 WingCompleter::WingCompleter(WingCodeEdit *editor)
     : QCompleter(editor), m_triggerAmount(3) {
     setCompletionMode(QCompleter::PopupCompletion);
-    setModelSorting(QCompleter::CaseInsensitivelySortedModel);
     setCaseSensitivity(Qt::CaseInsensitive);
-    setFilterMode(Qt::MatchContains);
+    setCompletionRole(Qt::UserRole);
+    setFilterMode(Qt::MatchStartsWith);
 
     if (editor) {
         editor->setCompleter(this);
@@ -49,8 +49,10 @@ void WingCompleter::trigger(const QString &trigger, const QString &content,
     auto cr = cursorRect;
     cr.setWidth(m_popUp->sizeHintForColumn(0) +
                 m_popUp->verticalScrollBar()->sizeHint().width());
-    popup()->setCurrentIndex(completionModel()->index(0, 0));
+    auto idx = completionModel()->index(0, 0);
+    m_popUp->setCurrentIndex(idx);
     complete(cr); // popup it up!
+    m_popUp->showTooltip(idx);
 }
 
 void WingCompleter::processTrigger(const QString &trigger,

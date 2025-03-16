@@ -155,6 +155,8 @@ public slots:
     void addSymbolMark(int line, const QString &id);
     void removeSymbolMark(int line);
 
+    void ensureLineVisible(int lineNumber);
+
 private:
     QString cursorNextChar(const QTextCursor &cursor);
     QString cursorPrevChar(const QTextCursor &cursor);
@@ -178,8 +180,8 @@ protected:
 private:
     bool processKeyShortcut(QKeyEvent *e);
 
-private slots:
-    void onCompletion(const QString &completion);
+protected slots:
+    virtual void onCompletion(const QModelIndex &index);
 
 public slots:
     void cutLines();

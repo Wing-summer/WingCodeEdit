@@ -25,8 +25,14 @@ class WingCodePopup : public QListView {
 public:
     explicit WingCodePopup(WingCodeEdit *editor = nullptr);
 
+public:
+    void setModel(QAbstractItemModel *model) override;
+
 protected:
     virtual void showEvent(QShowEvent *e) override;
+
+public slots:
+    void showTooltip(const QModelIndex &current);
 };
 
 #endif // WINGCODEPOPUP_H

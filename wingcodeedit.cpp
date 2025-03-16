@@ -600,7 +600,7 @@ void WingCodeEdit::setCompleter(WingCompleter *completer) {
 
     m_completer->setWidget(this);
     connect(m_completer,
-            QOverload<const QString &>::of(&WingCompleter::activated), this,
+            QOverload<const QModelIndex &>::of(&WingCompleter::activated), this,
             &WingCodeEdit::onCompletion);
 }
 
@@ -710,6 +710,26 @@ void WingCodeEdit::removeSymbolMark(int line) {
     }
 }
 
+void WingCodeEdit::ensureLineVisible(int lineNumber) {
+    auto doc = document();
+    auto block = doc->findBlockByNumber(lineNumber - 1);
+
+    if (block.isValid()) {
+        // Save the current cursor
+        QTextCursor savedCursor = textCursor();
+
+        // Create a cursor for the target line
+        QTextCursor cursor(block);
+
+        // Temporarily set the cursor and ensure visibility
+        setTextCursor(cursor);
+        ensureCursorVisible();
+
+        // Restore the original cursor
+        setTextCursor(savedCursor);
+    }
+}
+
 QString WingCodeEdit::cursorNextChar(const QTextCursor &cursor) {
     auto c = cursor;
     c.clearSelection();
@@ -726,8 +746,9 @@ QString WingCodeEdit::cursorPrevChar(const QTextCursor &cursor) {
 
 QString WingCodeEdit::textUnderCursor() const {
     QTextCursor tc = textCursor();
+    auto pos = tc.columnNumber();
     tc.select(QTextCursor::LineUnderCursor);
-    auto text = tc.selectedText();
+    auto text = tc.selectedText().left(pos);
     return text.mid(text.lastIndexOf(' ') + 1);
 }
 
@@ -1391,7 +1412,6 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
     updateCursor();
 
     if (m_completer) {
-        const bool hasModifier = e->modifiers() != Qt::NoModifier;
         auto completionContent = textUnderCursor();
 
         if (completionContent.isEmpty()) {
@@ -1399,10 +1419,8 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
             return;
         }
 
-        if (hasModifier || e->text().isEmpty() ||
-            completionContent.length() < m_completer->triggerAmount() ||
-            m_completer->wordSeperators().contains(
-                completionContent.right(1))) {
+        if (e->text().isEmpty() || m_completer->wordSeperators().contains(
+                                       completionContent.right(1))) {
             m_completer->popup()->hide();
             return;
         }
@@ -1412,13 +1430,18 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
                               [completionContent](const QString &trigger) {
                                   return completionContent.endsWith(trigger);
                               });
+
         auto currect = cursorRect();
         if (r == triggers.cend()) {
+            if (completionContent.length() < m_completer->triggerAmount()) {
+                m_completer->popup()->hide();
+                return;
+            }
             m_completer->trigger({}, completionContent, currect);
         } else {
             auto t = *r;
-            completionContent.remove(
-                completionContent.length() - t.length() - 1, t.length());
+            completionContent.remove(completionContent.length() - t.length(),
+                                     t.length());
             m_completer->trigger(t, completionContent, currect);
         }
     }
@@ -1705,12 +1728,17 @@ bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
     return false;
 }
 
-void WingCodeEdit::onCompletion(const QString &completion) {
+void WingCodeEdit::onCompletion(const QModelIndex &index) {
     if (m_completer->widget() != this)
         return;
+
     QTextCursor tc = textCursor();
-    tc.movePosition(QTextCursor::WordLeft, QTextCursor::KeepAnchor);
-    tc.removeSelectedText();
+    if (!m_completer->completionPrefix().isEmpty()) {
+        tc.movePosition(QTextCursor::WordLeft, QTextCursor::KeepAnchor);
+        tc.removeSelectedText();
+    }
+
+    auto completion = index.data(Qt::UserRole).toString();
     tc.insertText(completion);
     setTextCursor(tc);
 }
