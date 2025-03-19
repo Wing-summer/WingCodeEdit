@@ -122,6 +122,8 @@ public:
 
     QString symbolMark(int line) const;
 
+    void setHighlighter(WingSyntaxHighlighter *newHighlighter);
+
 signals:
     void symbolMarkLineMarginClicked(int line);
     void themeChanged();
@@ -176,6 +178,11 @@ protected:
     void wheelEvent(QWheelEvent *e) override;
     void paintEvent(QPaintEvent *e) override;
     void focusInEvent(QFocusEvent *e) override;
+
+protected:
+    bool processCompletionBegin(QKeyEvent *e);
+    bool processCompletionEnd(QKeyEvent *e);
+    void processDefaultKeyPressEvent(QKeyEvent *e);
 
 private:
     bool processKeyShortcut(QKeyEvent *e);

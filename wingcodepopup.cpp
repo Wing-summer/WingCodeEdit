@@ -24,7 +24,7 @@
 
 constexpr auto PADDING = 3;
 
-WingCodePopup::WingCodePopup(WingCodeEdit *editor) : QListView(editor) {
+WingCodePopup::WingCodePopup(WingCodeEdit *editor) : QListView() {
     // Changes listview properties
     setBatchSize(10);
     setMovement(Static);
@@ -44,7 +44,6 @@ WingCodePopup::WingCodePopup(WingCodeEdit *editor) : QListView(editor) {
     setStyleSheet(QStringLiteral("QListView{outline: 0;}"));
     setMinimumWidth(200);
     setMaximumWidth(600);
-    setMouseTracking(true);
 
     connect(editor, &WingCodeEdit::themeChanged, this,
             [this, editor] { this->setPalette(editor->palette()); });

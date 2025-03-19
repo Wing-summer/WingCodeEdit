@@ -553,6 +553,19 @@ void WingCodeEdit::updateExtraSelections() {
     setExtraSelections(m_braceMatch + m_searchResults);
 }
 
+void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
+    if (newHighlighter) {
+        newHighlighter->setTabWidth(m_highlighter->tabWidth());
+        newHighlighter->setDefinition(m_highlighter->definition());
+        newHighlighter->setTheme(m_highlighter->theme());
+        m_highlighter->setDocument(nullptr);
+        m_highlighter->deleteLater();
+        newHighlighter->setDocument(document());
+        m_highlighter = newHighlighter;
+        m_highlighter->rehighlight();
+    }
+}
+
 WingSyntaxHighlighter *WingCodeEdit::highlighter() const {
     return m_highlighter;
 }
@@ -1218,19 +1231,8 @@ void WingCodeEdit::zoomReset() {
 }
 
 void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
-    if (m_completer && m_completer->popup()->isVisible()) {
-        // The following keys are forwarded by the completer to the widget
-        switch (e->key()) {
-        case Qt::Key_Enter:
-        case Qt::Key_Return:
-        case Qt::Key_Escape:
-        case Qt::Key_Tab:
-        case Qt::Key_Backtab:
-            e->ignore();
-            return; // let the completer do default behavior
-        default:
-            break;
-        }
+    if (processCompletionBegin(e)) {
+        return;
     }
 
     if (processKeyShortcut(e)) {
@@ -1327,123 +1329,14 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
         // ignore
         break;
     default:
-        if (autoCloseChar()) {
-            auto text = e->text();
-            if (isAutoCloseChar(text)) {
-                QTextCursor cursor = textCursor();
-                if (cursor.hasSelection()) {
-                    QString content =
-                        text + cursor.selectedText() + getPairedCloseChar(text);
-                    cursor.beginEditBlock();
-                    cursor.removeSelectedText();
-                    cursor.insertText(content);
-                    cursor.endEditBlock();
-                } else {
-                    cursor.beginEditBlock();
-                    cursor.insertText(text + getPairedCloseChar(text));
-                    cursor.endEditBlock();
-                    cursor.movePosition(QTextCursor::PreviousCharacter,
-                                        QTextCursor::MoveAnchor);
-                    setTextCursor(cursor);
-                }
-            } else if (text == QStringLiteral("\"") ||
-                       text == QStringLiteral("'")) {
-                QTextCursor cursor = textCursor();
-                if (cursor.hasSelection()) {
-                    auto selstart =
-                        getCursorPositionBlock(cursor.selectionStart())
-                            .blockNumber();
-                    auto selend = getCursorPositionBlock(cursor.selectionEnd())
-                                      .blockNumber();
-                    if (selstart == selend) {
-                        if (cursor.hasSelection()) {
-                            QString content =
-                                text + cursor.selectedText() + text;
-                            cursor.beginEditBlock();
-                            cursor.removeSelectedText();
-                            cursor.insertText(content);
-                            cursor.endEditBlock();
-                        } else {
-                            auto ch = cursorNextChar(cursor);
-                            if (ch == QStringLiteral("\"") ||
-                                ch == QStringLiteral("'")) {
-                                if (cursorPrevChar(cursor) ==
-                                    QStringLiteral("\\")) {
-                                    cursor.insertText(text);
-                                } else {
-                                    cursor.movePosition(
-                                        QTextCursor::NextCharacter);
-                                    setTextCursor(cursor);
-                                }
-                            } else {
-                                cursor.insertText(text + text);
-                                cursor.movePosition(
-                                    QTextCursor::PreviousCharacter,
-                                    QTextCursor::MoveAnchor);
-                                setTextCursor(cursor);
-                            }
-                        }
-                    }
-                } else {
-                    auto pchar = cursorPrevChar(cursor);
-                    if (pchar == text && cursorNextChar(cursor) == text) {
-                        cursor.movePosition(QTextCursor::NextCharacter);
-                        setTextCursor(cursor);
-                    } else {
-                        if (pchar == QStringLiteral("\\")) {
-                            cursor.insertText(text);
-                        } else {
-                            cursor.insertText(text + text);
-                            cursor.movePosition(QTextCursor::PreviousCharacter,
-                                                QTextCursor::MoveAnchor);
-                            setTextCursor(cursor);
-                        }
-                    }
-                }
-            } else {
-                QPlainTextEdit::keyPressEvent(e);
-            }
-        } else {
-            QPlainTextEdit::keyPressEvent(e);
-        }
+        processDefaultKeyPressEvent(e);
         break;
     }
 
     updateCursor();
 
-    if (m_completer) {
-        auto completionContent = textUnderCursor();
-
-        if (completionContent.isEmpty()) {
-            m_completer->popup()->hide();
-            return;
-        }
-
-        if (e->text().isEmpty() || m_completer->wordSeperators().contains(
-                                       completionContent.right(1))) {
-            m_completer->popup()->hide();
-            return;
-        }
-
-        auto triggers = m_completer->triggerList();
-        auto r = std::find_if(triggers.cbegin(), triggers.cend(),
-                              [completionContent](const QString &trigger) {
-                                  return completionContent.endsWith(trigger);
-                              });
-
-        auto currect = cursorRect();
-        if (r == triggers.cend()) {
-            if (completionContent.length() < m_completer->triggerAmount()) {
-                m_completer->popup()->hide();
-                return;
-            }
-            m_completer->trigger({}, completionContent, currect);
-        } else {
-            auto t = *r;
-            completionContent.remove(completionContent.length() - t.length(),
-                                     t.length());
-            m_completer->trigger(t, completionContent, currect);
-        }
+    if (processCompletionEnd(e)) {
+        return;
     }
 }
 
@@ -1604,6 +1497,140 @@ void WingCodeEdit::focusInEvent(QFocusEvent *e) {
     if (m_completer)
         m_completer->setWidget(this);
     QPlainTextEdit::focusInEvent(e);
+}
+
+bool WingCodeEdit::processCompletionBegin(QKeyEvent *e) {
+    if (m_completer && m_completer->popup()->isVisible()) {
+        // The following keys are forwarded by the completer to the widget
+        switch (e->key()) {
+        case Qt::Key_Enter:
+        case Qt::Key_Return:
+        case Qt::Key_Escape:
+        case Qt::Key_Tab:
+        case Qt::Key_Backtab:
+            e->ignore();
+            return true; // let the completer do default behavior
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
+bool WingCodeEdit::processCompletionEnd(QKeyEvent *e) {
+    if (m_completer) {
+        auto completionContent = textUnderCursor();
+
+        if (completionContent.isEmpty()) {
+            m_completer->popup()->hide();
+            return true;
+        }
+
+        if (e->text().isEmpty() || m_completer->wordSeperators().contains(
+                                       completionContent.right(1))) {
+            m_completer->popup()->hide();
+            return true;
+        }
+
+        auto triggers = m_completer->triggerList();
+        auto r = std::find_if(triggers.cbegin(), triggers.cend(),
+                              [completionContent](const QString &trigger) {
+                                  return completionContent.endsWith(trigger);
+                              });
+
+        auto currect = cursorRect();
+        if (r == triggers.cend()) {
+            if (completionContent.length() < m_completer->triggerAmount()) {
+                m_completer->popup()->hide();
+                return true;
+            }
+            m_completer->trigger({}, completionContent, currect);
+        } else {
+            auto t = *r;
+            completionContent.remove(completionContent.length() - t.length(),
+                                     t.length());
+            m_completer->trigger(t, completionContent, currect);
+        }
+    }
+    return false;
+}
+
+void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
+    if (autoCloseChar()) {
+        auto text = e->text();
+        if (isAutoCloseChar(text)) {
+            QTextCursor cursor = textCursor();
+            if (cursor.hasSelection()) {
+                QString content =
+                    text + cursor.selectedText() + getPairedCloseChar(text);
+                cursor.beginEditBlock();
+                cursor.removeSelectedText();
+                cursor.insertText(content);
+                cursor.endEditBlock();
+            } else {
+                cursor.beginEditBlock();
+                cursor.insertText(text + getPairedCloseChar(text));
+                cursor.endEditBlock();
+                cursor.movePosition(QTextCursor::PreviousCharacter,
+                                    QTextCursor::MoveAnchor);
+                setTextCursor(cursor);
+            }
+        } else if (text == QStringLiteral("\"") ||
+                   text == QStringLiteral("'")) {
+            QTextCursor cursor = textCursor();
+            if (cursor.hasSelection()) {
+                auto selstart = getCursorPositionBlock(cursor.selectionStart())
+                                    .blockNumber();
+                auto selend =
+                    getCursorPositionBlock(cursor.selectionEnd()).blockNumber();
+                if (selstart == selend) {
+                    if (cursor.hasSelection()) {
+                        QString content = text + cursor.selectedText() + text;
+                        cursor.beginEditBlock();
+                        cursor.removeSelectedText();
+                        cursor.insertText(content);
+                        cursor.endEditBlock();
+                    } else {
+                        auto ch = cursorNextChar(cursor);
+                        if (ch == QStringLiteral("\"") ||
+                            ch == QStringLiteral("'")) {
+                            if (cursorPrevChar(cursor) ==
+                                QStringLiteral("\\")) {
+                                cursor.insertText(text);
+                            } else {
+                                cursor.movePosition(QTextCursor::NextCharacter);
+                                setTextCursor(cursor);
+                            }
+                        } else {
+                            cursor.insertText(text + text);
+                            cursor.movePosition(QTextCursor::PreviousCharacter,
+                                                QTextCursor::MoveAnchor);
+                            setTextCursor(cursor);
+                        }
+                    }
+                }
+            } else {
+                auto pchar = cursorPrevChar(cursor);
+                if (pchar == text && cursorNextChar(cursor) == text) {
+                    cursor.movePosition(QTextCursor::NextCharacter);
+                    setTextCursor(cursor);
+                } else {
+                    if (pchar == QStringLiteral("\\")) {
+                        cursor.insertText(text);
+                    } else {
+                        cursor.insertText(text + text);
+                        cursor.movePosition(QTextCursor::PreviousCharacter,
+                                            QTextCursor::MoveAnchor);
+                        setTextCursor(cursor);
+                    }
+                }
+            }
+        } else {
+            QPlainTextEdit::keyPressEvent(e);
+        }
+    } else {
+        QPlainTextEdit::keyPressEvent(e);
+    }
 }
 
 bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
