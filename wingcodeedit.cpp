@@ -37,8 +37,9 @@
 
 WingCodeEdit::WingCodeEdit(QWidget *parent)
     : QPlainTextEdit(parent), m_tabCharSize(4), m_indentWidth(4),
-      m_longLineMarker(80), m_config(), m_indentationMode(),
-      m_originalFontSize(), m_completer(nullptr) {
+      m_longLineMarker(80), m_config(),
+      m_indentationMode(IndentationMode::IndentSpaces), m_originalFontSize(),
+      m_completer(nullptr) {
     m_lineMargin = new WingLineMargin(this);
     connect(m_lineMargin, &WingLineMargin::symbolMarkLineMarginClicked, this,
             &WingCodeEdit::symbolMarkLineMarginClicked);
@@ -655,12 +656,7 @@ void WingCodeEdit::setTheme(const KSyntaxHighlighting::Theme &theme) {
     m_braceMatchBg =
         theme.editorColor(KSyntaxHighlighting::Theme::BracketMatching);
     m_errorBg = theme.editorColor(KSyntaxHighlighting::Theme::MarkError);
-
-#if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-    m_styleNeedsBgRepaint =
-        QApplication::style()->name() == QStringLiteral("windows11");
     m_editorBg = theme.editorColor(KSyntaxHighlighting::Theme::BackgroundColor);
-#endif
 
     m_highlighter->setTheme(theme);
     m_highlighter->rehighlight();
@@ -1357,16 +1353,8 @@ void WingCodeEdit::paintEvent(QPaintEvent *e) {
     const QRect viewRect = viewport()->rect();
     QRectF cursorBlockRect;
 
-#if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-    if (m_styleNeedsBgRepaint) {
-        // Draw the background.  This should be handled by
-        // QPlainTextEdit::paintEvent(), but some styles (notably, Qt's
-        // Windows11 style) ignore the provided background color and use their
-        // own.
-        QPainter p(viewport());
-        p.fillRect(eventRect, m_editorBg);
-    }
-#endif
+    QPainter p(viewport());
+    p.fillRect(eventRect, m_editorBg);
 
     const QTextCursor cursor = textCursor();
     if (highlightCurrentLine()) {
