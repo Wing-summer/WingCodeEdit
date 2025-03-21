@@ -37,7 +37,7 @@
 
 WingCodeEdit::WingCodeEdit(QWidget *parent)
     : QPlainTextEdit(parent), m_tabCharSize(4), m_indentWidth(4),
-      m_longLineMarker(80), m_config(),
+      m_longLineMarker(80), m_config(0),
       m_indentationMode(IndentationMode::IndentSpaces), m_originalFontSize(),
       m_completer(nullptr) {
     m_lineMargin = new WingLineMargin(this);

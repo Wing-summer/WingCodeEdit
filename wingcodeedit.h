@@ -36,6 +36,7 @@ class WingCodeEdit : public QPlainTextEdit {
 
 public:
     enum class IndentationMode { IndentSpaces, IndentTabs, IndentMixed };
+    Q_ENUM(IndentationMode)
 
     struct SearchParams {
         QString searchText;
