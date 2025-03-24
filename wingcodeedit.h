@@ -99,6 +99,8 @@ public:
     bool wordWrap() const;
     bool autoCloseChar() const;
 
+    bool isCurrentLineFolded() const;
+
     QTextCursor textSearch(const QTextCursor &start, const SearchParams &params,
                            bool matchFirst, bool reverse = false,
                            QRegularExpressionMatch *regexMatch = nullptr);

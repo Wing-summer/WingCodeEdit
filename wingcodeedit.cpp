@@ -470,6 +470,12 @@ bool WingCodeEdit::autoCloseChar() const {
     return m_config.testFlag(WingCodeEditConfig::AutoCloseChar);
 }
 
+bool WingCodeEdit::isCurrentLineFolded() const {
+    QTextCursor cursor = textCursor();
+    QTextBlock block = cursor.block();
+    return block.isValid() && WingSyntaxHighlighter::isFolded(block);
+}
+
 template <typename Findable>
 QTextCursor safeFindNext(QTextDocument *document, const Findable &search,
                          const QTextCursor &start,
