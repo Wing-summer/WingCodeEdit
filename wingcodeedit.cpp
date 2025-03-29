@@ -672,6 +672,8 @@ void WingCodeEdit::setTheme(const KSyntaxHighlighting::Theme &theme) {
         result.format.setBackground(m_searchBg);
     updateTextMetrics();
     updateCursor();
+
+    emit themeChanged();
 }
 
 QString WingCodeEdit::themeName() const {
