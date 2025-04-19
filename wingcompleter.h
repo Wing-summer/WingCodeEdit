@@ -44,7 +44,7 @@ public slots:
                  const QRect &cursorRect);
 
 protected:
-    virtual void processTrigger(const QString &trigger, const QString &content);
+    virtual bool processTrigger(const QString &trigger, const QString &content);
 
 private:
     WingCodePopup *m_popUp;
