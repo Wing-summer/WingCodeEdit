@@ -1564,12 +1564,20 @@ void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
                 cursor.insertText(content);
                 cursor.endEditBlock();
             } else {
-                cursor.beginEditBlock();
-                cursor.insertText(text + getPairedCloseChar(text));
-                cursor.endEditBlock();
-                cursor.movePosition(QTextCursor::PreviousCharacter,
-                                    QTextCursor::MoveAnchor);
-                setTextCursor(cursor);
+                auto cur = cursor;
+                cur.movePosition(QTextCursor::NextCharacter,
+                                 QTextCursor::KeepAnchor);
+                auto ch = cur.selectedText();
+                if (ch.isEmpty() || ch.front().isSpace()) {
+                    cursor.beginEditBlock();
+                    cursor.insertText(text + getPairedCloseChar(text));
+                    cursor.endEditBlock();
+                    cursor.movePosition(QTextCursor::PreviousCharacter,
+                                        QTextCursor::MoveAnchor);
+                    setTextCursor(cursor);
+                } else {
+                    QPlainTextEdit::keyPressEvent(e);
+                }
             }
         } else if (text == QStringLiteral("\"") ||
                    text == QStringLiteral("'")) {
