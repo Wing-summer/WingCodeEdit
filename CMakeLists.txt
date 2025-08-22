@@ -15,6 +15,8 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets PrintSupport)
 
 add_subdirectory(syntax-highlighting)
 
+option(BUILD_EXAMPLES OFF)
+
 if(BUILD_EXAMPLES)
     add_subdirectory(WingCodeEditExample)
 endif()
@@ -32,7 +34,8 @@ add_library(
     wingcodepopup.h
     wingcodepopup.cpp
     wingsymbolcenter.h
-    wingsymbolcenter.cpp)
+    wingsymbolcenter.cpp
+    squiggleinformationmodel.h squiggleinformationmodel.cpp)
 
 target_link_libraries(
     WingCodeEdit PUBLIC Qt${QT_VERSION_MAJOR}::Widgets

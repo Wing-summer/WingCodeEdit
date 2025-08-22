@@ -40,7 +40,6 @@ void WingLineMargin::paintEvent(QPaintEvent *paintEvent) {
         return;
 
     QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
     painter.fillRect(paintEvent->rect(), m_editor->m_lineMarginBg);
@@ -61,21 +60,17 @@ void WingLineMargin::paintEvent(QPaintEvent *paintEvent) {
 
     QTextCursor cursor = m_editor->textCursor();
 
-    auto highligher = m_editor->highlighter();
     while (block.isValid() && top <= paintEvent->rect().bottom()) {
         if (block.isVisible()) {
             if (m_editor->showSymbolMark()) {
-                auto usrd = highligher->property(block, QStringLiteral("sym"));
-                if (usrd.isValid()) {
-                    auto symid = usrd.toString();
-                    if (!symid.isEmpty()) {
-                        auto sym =
-                            WingSymbolCenter::instance().symbolFromName(symid);
-                        if (!sym.isNull()) {
-                            painter.drawPixmap(QRect(3, top, metrics.height(),
-                                                     metrics.height()),
-                                               sym, sym.rect());
-                        }
+                auto symid = WingSyntaxHighlighter::symbolMarkID(block);
+                if (!symid.isEmpty()) {
+                    auto sym =
+                        WingSymbolCenter::instance().symbolFromName(symid);
+                    if (!sym.isNull()) {
+                        painter.drawPixmap(
+                            QRect(3, top, metrics.height(), metrics.height()),
+                            sym, sym.rect());
                     }
                 }
             }

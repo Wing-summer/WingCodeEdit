@@ -18,9 +18,40 @@
 
 #include <KSyntaxHighlighting/SyntaxHighlighter>
 
-class WingSyntaxHighlighter : public KSyntaxHighlighting::SyntaxHighlighter {
+class WingSyntaxHighlighterPrivate;
+
+class WingSyntaxHighlighter : public QSyntaxHighlighter,
+                              public KSyntaxHighlighting::AbstractHighlighter {
 public:
+    explicit WingSyntaxHighlighter(QObject *parent = nullptr);
     explicit WingSyntaxHighlighter(QTextDocument *document);
+    virtual ~WingSyntaxHighlighter();
+
+public:
+    void setDefinition(const KSyntaxHighlighting::Definition &def) override;
+    void setTheme(const KSyntaxHighlighting::Theme &theme) override;
+
+    /** Returns whether there is a folding region beginning at @p startBlock.
+     *  This only considers syntax-based folding regions,
+     *  not indention-based ones as e.g. found in Python.
+     *
+     *  @see findFoldingRegionEnd
+     */
+    bool startsFoldingRegion(const QTextBlock &startBlock) const;
+
+    /** Finds the end of the folding region starting at @p startBlock.
+     *  If multiple folding regions begin at @p startBlock, the end of
+     *  the last/innermost one is returned.
+     *  This returns an invalid block if no folding region end is found,
+     *  which typically indicates an unterminated region and thus folding
+     *  until the document end.
+     *  This method performs a sequential search starting at @p startBlock
+     *  for the matching folding region end, which is a potentially expensive
+     *  operation.
+     *
+     *  @see startsFoldingRegion
+     */
+    QTextBlock findFoldingRegionEnd(const QTextBlock &startBlock) const;
 
 public:
     void setTabWidth(int width);
@@ -42,11 +73,24 @@ public:
     bool isFoldable(const QTextBlock &block) const;
     QTextBlock findFoldEnd(const QTextBlock &startBlock) const;
 
+public:
+    static void setSymbolMark(QTextBlock &block, const QString &id);
+    static QString symbolMarkID(const QTextBlock &block);
+    static bool containsSymbolMark(QTextBlock &block);
+    static void clearSymbolMark(QTextBlock &block);
+
 protected:
     void highlightBlock(const QString &text) override;
+    void applyFormat(int offset, int length,
+                     const KSyntaxHighlighting::Format &format) override;
+    void applyFolding(int offset, int length,
+                      KSyntaxHighlighting::FoldingRegion region) override;
 
 private:
     int m_tabCharSize;
+
+private:
+    Q_DECLARE_PRIVATE_D(AbstractHighlighter::d_ptr, WingSyntaxHighlighter)
 };
 
 #endif // WINGSYNTAXHIGHLIGHTER_H

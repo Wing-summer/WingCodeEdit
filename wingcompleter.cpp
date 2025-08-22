@@ -24,7 +24,7 @@ WingCompleter::WingCompleter(WingCodeEdit *editor)
     : QCompleter(editor), m_triggerAmount(3) {
     setCompletionMode(QCompleter::PopupCompletion);
     setCaseSensitivity(Qt::CaseInsensitive);
-    setCompletionRole(Qt::UserRole);
+    setCompletionRole(Qt::DisplayRole);
     setFilterMode(Qt::MatchStartsWith);
 
     if (editor) {
@@ -64,13 +64,7 @@ bool WingCompleter::processTrigger(const QString &trigger,
         std::find_if(content.crbegin(), content.crend(),
                      [seps](const QChar &ch) { return seps.contains(ch); });
     auto idx = std::distance(r, content.crend());
-    setCompletionPrefix(content.
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-                        mid
-#else
-                        sliced
-#endif
-                        (idx));
+    setCompletionPrefix(content.sliced(idx));
     return true;
 }
 

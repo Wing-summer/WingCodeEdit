@@ -21,6 +21,8 @@
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QEvent>
+#include <QMimeData>
 #include <QPainter>
 #include <QPalette>
 #include <QPrinter>
@@ -29,6 +31,7 @@
 #include <QStack>
 #include <QStyle>
 #include <QStyleHints>
+#include <QToolTip>
 #include <QUndoStack>
 #include <QtMath>
 
@@ -55,6 +58,8 @@ WingCodeEdit::WingCodeEdit(QWidget *parent)
             &WingCodeEdit::updateCursor);
     connect(this, &QPlainTextEdit::textChanged, this,
             &WingCodeEdit::updateLiveSearch);
+    connect(this, &QPlainTextEdit::selectionChanged, this,
+            &WingCodeEdit::highlightOccurrences);
 
     // Initialize default editor configuration
     QFont fixedFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
@@ -557,7 +562,10 @@ void WingCodeEdit::updateLiveSearch() {
 }
 
 void WingCodeEdit::updateExtraSelections() {
-    setExtraSelections(m_braceMatch + m_searchResults);
+    QPlainTextEdit::setExtraSelections(
+        m_braceMatch + m_searchResults + m_occurrencesExtraSelections +
+        m_squigglesExtraSelections + m_squigglesLineExtraSelections +
+        m_extraSelections);
 }
 
 void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
@@ -573,8 +581,95 @@ void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
     }
 }
 
+void WingCodeEdit::setExtraSelections(
+    const QList<QTextEdit::ExtraSelection> &selections) {
+    m_extraSelections = selections;
+    updateExtraSelections();
+}
+
+QList<QTextEdit::ExtraSelection> WingCodeEdit::extraSelections() const {
+    return m_extraSelections;
+}
+
+QTextEdit::ExtraSelection
+WingCodeEdit::addExtraSelection(const QPair<int, int> &start,
+                                const QPair<int, int> &stop,
+                                const QTextCharFormat &format) {
+    auto cursor = textCursor();
+
+    cursor.movePosition(QTextCursor::Start);
+    cursor.movePosition(QTextCursor::NextBlock, QTextCursor::MoveAnchor,
+                        start.first - 1);
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor,
+                        start.second);
+
+    if (stop.first > start.first)
+        cursor.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor,
+                            stop.first - start.first);
+
+    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
+                        stop.second);
+
+    QTextEdit::ExtraSelection exsel;
+    exsel.cursor = cursor;
+    exsel.format = format;
+    m_extraSelections.append(exsel);
+    updateExtraSelections();
+
+    return exsel;
+}
+
+QTextEdit::ExtraSelection
+WingCodeEdit::addExtraSelection(const QTextBlock &block,
+                                const QTextCharFormat &format) {
+    QTextCursor cursor(block);
+    cursor.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor);
+    QTextEdit::ExtraSelection exsel;
+    exsel.cursor = cursor;
+    exsel.format = format;
+    m_extraSelections.append(exsel);
+    updateExtraSelections();
+    return exsel;
+}
+
+void WingCodeEdit::addSquiggle(SeverityLevel level,
+                               const QPair<int, int> &start,
+                               const QPair<int, int> &stop,
+                               const QString &tooltipMessage) {
+    if (stop < start)
+        return;
+    m_squiggles.append({level, start, stop, tooltipMessage});
+}
+
+void WingCodeEdit::highlightAllSquiggle() {
+    m_squigglesExtraSelections.clear();
+    m_squigglesLineExtraSelections.clear();
+    for (auto &info : m_squiggles) {
+        highlightSquiggle(info);
+    }
+    emit squiggleItemChanged();
+    updateExtraSelections();
+}
+
+void WingCodeEdit::clearSquiggle() {
+    if (m_squiggles.isEmpty())
+        return;
+
+    m_squiggles.clear();
+    m_squigglesExtraSelections.clear();
+    m_squigglesLineExtraSelections.clear();
+
+    updateExtraSelections();
+}
+
 WingSyntaxHighlighter *WingCodeEdit::highlighter() const {
     return m_highlighter;
+}
+
+KSyntaxHighlighting::Theme WingCodeEdit::theme() const {
+    return m_highlighter->theme();
 }
 
 void WingCodeEdit::setMatchBraces(bool match) {
@@ -633,8 +728,10 @@ void WingCodeEdit::setTheme(const KSyntaxHighlighting::Theme &theme) {
     pal.setColor(
         QPalette::Base,
         theme.editorColor(KSyntaxHighlighting::Theme::BackgroundColor));
-    pal.setColor(QPalette::Highlight,
-                 theme.editorColor(KSyntaxHighlighting::Theme::TextSelection));
+
+    m_textSelBg = theme.editorColor(KSyntaxHighlighting::Theme::TextSelection);
+    pal.setColor(QPalette::Highlight, m_textSelBg);
+
     pal.setBrush(QPalette::HighlightedText, Qt::NoBrush);
     setPalette(pal);
 
@@ -662,7 +759,12 @@ void WingCodeEdit::setTheme(const KSyntaxHighlighting::Theme &theme) {
     m_braceMatchBg =
         theme.editorColor(KSyntaxHighlighting::Theme::BracketMatching);
     m_errorBg = theme.editorColor(KSyntaxHighlighting::Theme::MarkError);
+    m_warnBg = theme.editorColor(KSyntaxHighlighting::Theme::MarkWarning);
     m_editorBg = theme.editorColor(KSyntaxHighlighting::Theme::BackgroundColor);
+
+    m_errorFg = theme.textColor(KSyntaxHighlighting::Theme::Error);
+    m_warnFg = theme.textColor(KSyntaxHighlighting::Theme::Warning);
+    m_infoFg = theme.textColor(KSyntaxHighlighting::Theme::Information);
 
     m_highlighter->setTheme(theme);
     m_highlighter->rehighlight();
@@ -672,6 +774,8 @@ void WingCodeEdit::setTheme(const KSyntaxHighlighting::Theme &theme) {
         result.format.setBackground(m_searchBg);
     updateTextMetrics();
     updateCursor();
+    highlightAllSquiggle();
+    highlightOccurrences();
 
     emit themeChanged();
 }
@@ -706,7 +810,7 @@ void WingCodeEdit::addSymbolMark(int line, const QString &id) {
 
     auto block = document()->findBlockByNumber(line - 1);
     if (block.isValid()) {
-        m_highlighter->setProperty(block, QStringLiteral("sym"), id);
+        WingSyntaxHighlighter::setSymbolMark(block, id);
         repaintMargins();
     }
 }
@@ -714,7 +818,7 @@ void WingCodeEdit::addSymbolMark(int line, const QString &id) {
 QString WingCodeEdit::symbolMark(int line) const {
     auto block = document()->findBlockByNumber(line - 1);
     if (block.isValid()) {
-        return m_highlighter->property(block, QStringLiteral("sym")).toString();
+        return WingSyntaxHighlighter::symbolMarkID(block);
     }
     return {};
 }
@@ -722,7 +826,7 @@ QString WingCodeEdit::symbolMark(int line) const {
 void WingCodeEdit::removeSymbolMark(int line) {
     auto block = document()->findBlockByNumber(line - 1);
     if (block.isValid()) {
-        m_highlighter->setProperty(block, QStringLiteral("sym"), {});
+        WingSyntaxHighlighter::clearSymbolMark(block);
         repaintMargins();
     }
 }
@@ -811,6 +915,43 @@ QTextBlock WingCodeEdit::getCursorPositionBlock(int position) const {
     QTextCursor cursor = textCursor();
     cursor.setPosition(position);
     return cursor.block();
+}
+
+bool WingCodeEdit::event(QEvent *e) {
+    if (e->type() == QEvent::ToolTip) {
+        auto *helpEvent = static_cast<QHelpEvent *>(e);
+        auto point = helpEvent->pos();
+        point.setX(point.x() - lineMarginWidth());
+        QTextCursor cursor = cursorForPosition(point);
+
+        auto lineNumber = cursor.blockNumber() + 1;
+
+        QTextCursor copyCursor(cursor);
+        copyCursor.movePosition(QTextCursor::StartOfBlock);
+
+        auto blockPositionStart =
+            cursor.positionInBlock() - copyCursor.positionInBlock();
+        QPair<int, int> positionOfTooltip{lineNumber, blockPositionStart};
+
+        QString text;
+        for (auto &e : m_squiggles) {
+            if (e.start <= positionOfTooltip && e.stop >= positionOfTooltip) {
+                if (text.isEmpty())
+                    text = e.tooltip;
+                else
+                    text += QStringLiteral("; ") + e.tooltip;
+            }
+        }
+
+        if (text.isEmpty())
+            QToolTip::hideText();
+        else
+            QToolTip::showText(helpEvent->globalPos(), text);
+
+        return true;
+    }
+
+    return QPlainTextEdit::event(e);
 }
 
 QString WingCodeEdit::syntaxName() const {
@@ -1375,9 +1516,6 @@ void WingCodeEdit::paintEvent(QPaintEvent *e) {
         cursorBlockRect.setWidth(eventRect.width());
         if (eventRect.intersects(cursorBlockRect.toAlignedRect())) {
             QPainter p(viewport());
-            p.setRenderHint(QPainter::Antialiasing);
-            p.setRenderHint(QPainter::TextAntialiasing);
-            p.setRenderHint(QPainter::SmoothPixmapTransform);
             p.fillRect(cursorBlockRect, m_cursorLineBg);
         }
     }
@@ -1394,8 +1532,6 @@ void WingCodeEdit::paintEvent(QPaintEvent *e) {
         if (longLinePos < viewRect.width()) {
             QPainter p(viewport());
             p.setRenderHint(QPainter::Antialiasing);
-            p.setRenderHint(QPainter::TextAntialiasing);
-            p.setRenderHint(QPainter::SmoothPixmapTransform);
             QRectF longLineRect(longLinePos, eventRect.top(),
                                 viewRect.width() - longLinePos,
                                 eventRect.height());
@@ -1420,8 +1556,6 @@ void WingCodeEdit::paintEvent(QPaintEvent *e) {
             WingSyntaxHighlighter::isFolded(block)) {
             QPainter p(viewport());
             p.setRenderHint(QPainter::Antialiasing);
-            p.setRenderHint(QPainter::TextAntialiasing);
-            p.setRenderHint(QPainter::SmoothPixmapTransform);
             blockRect.setLeft(eventRect.left());
             blockRect.setRight(eventRect.right());
             p.setPen(QPen(m_codeFoldingBg, 1.0, Qt::DashLine));
@@ -1441,8 +1575,6 @@ void WingCodeEdit::paintEvent(QPaintEvent *e) {
     if (showIndentGuides()) {
         QPainter p(viewport());
         p.setRenderHint(QPainter::Antialiasing);
-        p.setRenderHint(QPainter::TextAntialiasing);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
         p.setPen(m_indentGuideFg);
         block = firstVisibleBlock();
         const QFontMetricsF fm(font());
@@ -1493,6 +1625,10 @@ void WingCodeEdit::focusInEvent(QFocusEvent *e) {
     if (m_completer)
         m_completer->setWidget(this);
     QPlainTextEdit::focusInEvent(e);
+}
+
+void WingCodeEdit::insertFromMimeData(const QMimeData *source) {
+    insertPlainText(source->text());
 }
 
 bool WingCodeEdit::processCompletionBegin(QKeyEvent *e) {
@@ -1757,6 +1893,86 @@ bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
     }
 
     return false;
+}
+
+void WingCodeEdit::highlightSquiggle(const SquiggleInformation &info) {
+    auto cursor = textCursor();
+
+    cursor.movePosition(QTextCursor::Start);
+    cursor.movePosition(QTextCursor::NextBlock, QTextCursor::MoveAnchor,
+                        info.start.first - 1);
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor,
+                        info.start.second);
+
+    if (info.stop.first > info.start.first)
+        cursor.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor,
+                            info.stop.first - info.start.first);
+
+    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
+                        info.stop.second);
+
+    QTextCharFormat newcharfmt = currentCharFormat();
+    newcharfmt.setFontUnderline(true);
+
+    auto color = m_editorBg;
+    switch (info.level) {
+    case SeverityLevel::Error:
+        newcharfmt.setUnderlineColor(m_errorFg);
+        newcharfmt.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+        color = m_errorBg;
+        break;
+    case SeverityLevel::Warning:
+        newcharfmt.setUnderlineColor(m_warnFg);
+        newcharfmt.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+        color = m_warnBg;
+        break;
+    case SeverityLevel::Information:
+    case SeverityLevel::Hint:
+        newcharfmt.setUnderlineColor(m_infoFg);
+        newcharfmt.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+        color = m_warnBg;
+    }
+
+    m_squigglesExtraSelections.push_back({cursor, newcharfmt});
+
+    QTextEdit::ExtraSelection newlinefmt;
+    color.setAlpha(int(color.alpha() * 0.2));
+    newlinefmt.format.setBackground(color);
+    newlinefmt.format.setProperty(QTextFormat::FullWidthSelection, true);
+    newlinefmt.cursor = cursor;
+    newlinefmt.cursor.clearSelection();
+    m_squigglesLineExtraSelections.push_back(newlinefmt);
+}
+
+void WingCodeEdit::highlightOccurrences() {
+    m_occurrencesExtraSelections.clear();
+    auto cursor = textCursor();
+    if (cursor.hasSelection()) {
+        auto text = cursor.selectedText();
+        static QRegularExpression regex(
+            R"((?:[_a-zA-Z][_a-zA-Z0-9]*)|(?<=\b|\s|^)(?i)(?:(?:(?:(?:(?:\d+(?:'\d+)*)?\.(?:\d+(?:'\d+)*)(?:e[+-]?(?:\d+(?:'\d+)*))?)|(?:(?:\d+(?:'\d+)*)\.(?:e[+-]?(?:\d+(?:'\d+)*))?)|(?:(?:\d+(?:'\d+)*)(?:e[+-]?(?:\d+(?:'\d+)*)))|(?:0x(?:[0-9a-f]+(?:'[0-9a-f]+)*)?\.(?:[0-9a-f]+(?:'[0-9a-f]+)*)(?:p[+-]?(?:\d+(?:'\d+)*)))|(?:0x(?:[0-9a-f]+(?:'[0-9a-f]+)*)\.?(?:p[+-]?(?:\d+(?:'\d+)*))))[lf]?)|(?:(?:(?:[1-9]\d*(?:'\d+)*)|(?:0[0-7]*(?:'[0-7]+)*)|(?:0x[0-9a-f]+(?:'[0-9a-f]+)*)|(?:0b[01]+(?:'[01]+)*))(?:u?l{0,2}|l{0,2}u?)))(?=\b|\s|$))");
+        if (regex.match(text).captured() == text) {
+            auto *doc = document();
+            cursor = doc->find(text, 0,
+                               QTextDocument::FindWholeWords |
+                                   QTextDocument::FindCaseSensitively);
+            while (!cursor.isNull()) {
+                if (cursor != textCursor()) {
+                    QTextEdit::ExtraSelection e;
+                    e.cursor = cursor;
+                    e.format.setBackground(m_textSelBg);
+                    m_occurrencesExtraSelections.push_back(e);
+                }
+                cursor = doc->find(text, cursor,
+                                   QTextDocument::FindWholeWords |
+                                       QTextDocument::FindCaseSensitively);
+            }
+        }
+    }
+
+    updateExtraSelections();
 }
 
 void WingCodeEdit::onCompletion(const QModelIndex &index) {

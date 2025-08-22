@@ -16,6 +16,7 @@
 #ifndef WINGCODEEDIT_H
 #define WINGCODEEDIT_H
 
+#include <KSyntaxHighlighting/Theme>
 #include <QPlainTextEdit>
 #include <QTextBlock>
 
@@ -33,6 +34,7 @@ class QPrinter;
 class WingCodeEdit : public QPlainTextEdit {
     Q_OBJECT
     friend class WingLineMargin;
+    friend class SquiggleInformationModel;
 
 public:
     enum class IndentationMode { IndentSpaces, IndentTabs, IndentMixed };
@@ -44,6 +46,9 @@ public:
         bool wholeWord = false;
         bool regex = false;
     };
+
+public:
+    enum class SeverityLevel { Hint, Information, Warning, Error };
 
 private:
     enum class WingCodeEditConfig {
@@ -123,12 +128,54 @@ public:
     WingCompleter *completer() const;
     WingSyntaxHighlighter *highlighter() const;
 
+    KSyntaxHighlighting::Theme theme() const;
+
     QString symbolMark(int line) const;
 
     void setHighlighter(WingSyntaxHighlighter *newHighlighter);
 
+    // Hides QPlainTextEdit::setExtraSelections
+    void setExtraSelections(const QList<QTextEdit::ExtraSelection> &selections);
+    // Hides QPlainTextEdit::extraSelections
+    QList<QTextEdit::ExtraSelection> extraSelections() const;
+
+public:
+    /**
+     * @brief addExtraSelection
+     * @note QPair<int, int>: first -> Line number in 1-based indexing
+     *                        second -> Character number in 0-based indexing
+     */
+    QTextEdit::ExtraSelection addExtraSelection(const QPair<int, int> &start,
+                                                const QPair<int, int> &stop,
+                                                const QTextCharFormat &format);
+
+    QTextEdit::ExtraSelection addExtraSelection(const QTextBlock &block,
+                                                const QTextCharFormat &format);
+
+public:
+    /**
+     * @brief squiggle Puts a underline squiggle under text ranges in Editor
+     * @param level defines the color of the underline depending upon the
+     * severity
+     * @param tooltipMessage The tooltip hover message to show when over
+     * selection.
+     * @note QPair<int, int>: first -> Line number in 1-based indexing
+     *                        second -> Character number in 0-based indexing
+     */
+    void addSquiggle(SeverityLevel level, const QPair<int, int> &start,
+                     const QPair<int, int> &stop,
+                     const QString &tooltipMessage);
+
+    void highlightAllSquiggle();
+
+    /**
+     * @brief clearSquiggle, Clears complete squiggle from editor
+     */
+    void clearSquiggle();
+
 signals:
     void symbolMarkLineMarginClicked(int line);
+    void squiggleItemChanged();
     void themeChanged();
 
 public slots:
@@ -176,11 +223,14 @@ private:
     QTextBlock getCursorPositionBlock(int position) const;
 
 protected:
+    bool event(QEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
     void wheelEvent(QWheelEvent *e) override;
     void paintEvent(QPaintEvent *e) override;
     void focusInEvent(QFocusEvent *e) override;
+
+    void insertFromMimeData(const QMimeData *source) override;
 
 protected:
     bool processCompletionBegin(QKeyEvent *e);
@@ -189,6 +239,20 @@ protected:
 
 private:
     bool processKeyShortcut(QKeyEvent *e);
+
+    struct SquiggleInformation {
+        SquiggleInformation(SeverityLevel level, const QPair<int, int> &start,
+                            const QPair<int, int> &stop, const QString &text)
+            : level(level), start(start), stop(stop), tooltip(text) {}
+
+        SeverityLevel level;
+        QPair<int, int> start;
+        QPair<int, int> stop;
+        QString tooltip;
+    };
+
+    void highlightSquiggle(const SquiggleInformation &info);
+    void highlightOccurrences();
 
 protected slots:
     virtual void onCompletion(const QModelIndex &index);
@@ -225,6 +289,7 @@ private:
     WingLineMargin *m_lineMargin;
     WingSyntaxHighlighter *m_highlighter;
 
+    // color caches
     QColor m_lineMarginBg, m_lineMarginFg;
     QColor m_codeFoldingBg, m_codeFoldingFg;
     QColor m_cursorLineBg, m_cursorLineNum;
@@ -233,6 +298,15 @@ private:
     QColor m_searchBg;
     QColor m_braceMatchBg;
     QColor m_errorBg;
+    QColor m_warnBg;
+    QColor m_textSelBg;
+
+    QColor m_errorFg;
+    QColor m_warnFg;
+    QColor m_infoFg;
+
+    QVector<SquiggleInformation> m_squiggles;
+
     int m_tabCharSize, m_indentWidth;
     int m_longLineMarker;
     WingCodeEditConfigs m_config;
@@ -246,8 +320,10 @@ private:
     SearchParams m_liveSearch;
     QList<QTextEdit::ExtraSelection> m_braceMatch;
     QList<QTextEdit::ExtraSelection> m_searchResults;
-
-    QHash<QTextBlock, QString> _symbol;
+    QList<QTextEdit::ExtraSelection> m_occurrencesExtraSelections;
+    QList<QTextEdit::ExtraSelection> m_squigglesExtraSelections,
+        m_squigglesLineExtraSelections;
+    QList<QTextEdit::ExtraSelection> m_extraSelections;
 
     void updateScrollBars();
 };

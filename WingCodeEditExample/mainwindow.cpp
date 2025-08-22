@@ -15,6 +15,7 @@
 
 #include "mainwindow.h"
 
+#include "squiggleinformationmodel.h"
 #include "wingcodeedit.h"
 #include "wingcompleter.h"
 #include "wingsymbolcenter.h"
@@ -23,8 +24,10 @@
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/Theme>
 
+#include <QListView>
 #include <QStandardItemModel>
 #include <QToolBar>
+#include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     auto toolbar = new QToolBar(this);
@@ -63,14 +66,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     }
     addToolBar(toolbar);
 
-    ce->setPlainText(R"(#include <iostream>
+    auto code = QStringLiteral(R"(#include <iostream>
 using namespace std;
 
 int main(){
+    int a;
     std::cout << "hello world!" << std::endl;
     return 0;
 }
 )");
+    ce->setPlainText(code);
+
+    auto l = QStringLiteral("int a");
+    auto cursor =
+        ce->document()->find(l, QTextDocument::FindFlag::FindCaseSensitively);
 
     WingSymbolCenter::instance().regsiterSymbol(
         "bp", QPixmap(":/WingCodeEditExample/bp.png"));
@@ -80,10 +89,9 @@ int main(){
         KSyntaxHighlighting::Repository::DarkTheme));
 
     auto cp = new WingCompleter(ce);
+
     auto mo = new QStandardItemModel(this);
-
     auto icon = QIcon(":/WingCodeEditExample/bp.png");
-
     mo->appendRow(new QStandardItem(icon, "string"));
     mo->appendRow(new QStandardItem(icon, "array"));
     mo->appendRow(new QStandardItem(icon, "arrow"));
@@ -102,7 +110,25 @@ int main(){
                 }
             });
 
-    setCentralWidget(ce);
+    auto w = new QWidget(this);
+    auto vbox = new QVBoxLayout(w);
+    vbox->addWidget(ce);
+
+    auto diag = new QListView(this);
+    auto dv = new SquiggleInformationModel(ce, this);
+    dv->setSeverityLevelIcon(SquiggleInformationModel::SeverityLevel::Warning,
+                             QIcon(":/WingCodeEditExample/warn.png"));
+    diag->setModel(dv);
+    vbox->addWidget(diag);
+
+    setCentralWidget(w);
+
+    ce->addSquiggle(
+        WingCodeEdit::SeverityLevel::Warning,
+        {cursor.blockNumber() + 1, cursor.positionInBlock() - l.length()},
+        {cursor.blockNumber() + 1, cursor.positionInBlock()},
+        "Unused variable 'a'");
+    ce->highlightAllSquiggle();
 
     resize(800, 600);
 }
