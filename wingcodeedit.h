@@ -134,24 +134,6 @@ public:
 
     void setHighlighter(WingSyntaxHighlighter *newHighlighter);
 
-    // Hides QPlainTextEdit::setExtraSelections
-    void setExtraSelections(const QList<QTextEdit::ExtraSelection> &selections);
-    // Hides QPlainTextEdit::extraSelections
-    QList<QTextEdit::ExtraSelection> extraSelections() const;
-
-public:
-    /**
-     * @brief addExtraSelection
-     * @note QPair<int, int>: first -> Line number in 1-based indexing
-     *                        second -> Character number in 0-based indexing
-     */
-    QTextEdit::ExtraSelection addExtraSelection(const QPair<int, int> &start,
-                                                const QPair<int, int> &stop,
-                                                const QTextCharFormat &format);
-
-    QTextEdit::ExtraSelection addExtraSelection(const QTextBlock &block,
-                                                const QTextCharFormat &format);
-
 public:
     /**
      * @brief squiggle Puts a underline squiggle under text ranges in Editor
@@ -252,7 +234,9 @@ private:
     };
 
     void highlightSquiggle(const SquiggleInformation &info);
-    void highlightOccurrences();
+
+protected:
+    virtual void highlightOccurrences();
 
 protected slots:
     virtual void onCompletion(const QModelIndex &index);
@@ -282,6 +266,8 @@ private slots:
     void updateTabMetrics();
     void updateTextMetrics();
     void updateLiveSearch();
+
+protected slots:
     void updateExtraSelections();
 
 private:
@@ -320,12 +306,13 @@ private:
     SearchParams m_liveSearch;
     QList<QTextEdit::ExtraSelection> m_braceMatch;
     QList<QTextEdit::ExtraSelection> m_searchResults;
-    QList<QTextEdit::ExtraSelection> m_occurrencesExtraSelections;
     QList<QTextEdit::ExtraSelection> m_squigglesExtraSelections,
         m_squigglesLineExtraSelections;
-    QList<QTextEdit::ExtraSelection> m_extraSelections;
 
     void updateScrollBars();
+
+protected:
+    QList<QTextEdit::ExtraSelection> m_occurrencesExtraSelections;
 };
 
 #endif // WINGCODEEDIT_H

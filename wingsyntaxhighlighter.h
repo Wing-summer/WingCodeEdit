@@ -16,6 +16,8 @@
 #ifndef WINGSYNTAXHIGHLIGHTER_H
 #define WINGSYNTAXHIGHLIGHTER_H
 
+#include "wingtextblockuserdata.h"
+
 #include <KSyntaxHighlighting/SyntaxHighlighter>
 
 class WingSyntaxHighlighterPrivate;
@@ -54,6 +56,9 @@ public:
     QTextBlock findFoldingRegionEnd(const QTextBlock &startBlock) const;
 
 public:
+    virtual WingTextBlockUserData *createTextBlockUserData();
+
+public:
     void setTabWidth(int width);
     int tabWidth() const;
 
@@ -74,10 +79,10 @@ public:
     QTextBlock findFoldEnd(const QTextBlock &startBlock) const;
 
 public:
-    static void setSymbolMark(QTextBlock &block, const QString &id);
-    static QString symbolMarkID(const QTextBlock &block);
-    static bool containsSymbolMark(QTextBlock &block);
-    static void clearSymbolMark(QTextBlock &block);
+    void setSymbolMark(QTextBlock &block, const QString &id);
+    QString symbolMarkID(const QTextBlock &block);
+    bool containsSymbolMark(QTextBlock &block);
+    void clearSymbolMark(QTextBlock &block);
 
 protected:
     void highlightBlock(const QString &text) override;

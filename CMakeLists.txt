@@ -35,7 +35,9 @@ add_library(
     wingcodepopup.cpp
     wingsymbolcenter.h
     wingsymbolcenter.cpp
-    squiggleinformationmodel.h squiggleinformationmodel.cpp)
+    squiggleinformationmodel.h
+    squiggleinformationmodel.cpp
+    wingtextblockuserdata.h)
 
 target_link_libraries(
     WingCodeEdit PUBLIC Qt${QT_VERSION_MAJOR}::Widgets

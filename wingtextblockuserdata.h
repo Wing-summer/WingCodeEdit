@@ -13,27 +13,18 @@
 **
 ****************************************************************************/
 
-#include "wingsymbolcenter.h"
+#ifndef WINGTEXTBLOCKUSERDATA_H
+#define WINGTEXTBLOCKUSERDATA_H
 
-WingSymbolCenter &WingSymbolCenter::instance() {
-    static WingSymbolCenter ins;
-    return ins;
-}
+#include <KSyntaxHighlighting/FoldingRegion>
+#include <KSyntaxHighlighting/State>
+#include <QTextBlockUserData>
 
-bool WingSymbolCenter::existSymbol(const QString &id) {
-    return _caches.contains(id);
-}
+class WingTextBlockUserData : public QTextBlockUserData {
+public:
+    KSyntaxHighlighting::State state;
+    QList<KSyntaxHighlighting::FoldingRegion> foldingRegions;
+    QString symbolID;
+};
 
-QPixmap WingSymbolCenter::symbolFromName(const QString &id) {
-    return _caches.value(id);
-}
-
-void WingSymbolCenter::regsiterSymbol(const QString &id,
-                                      const QPixmap &symbol) {
-    if (symbol.isNull()) {
-        return;
-    }
-    _caches.insert(id, symbol);
-}
-
-WingSymbolCenter::WingSymbolCenter() {}
+#endif // WINGTEXTBLOCKUSERDATA_H

@@ -16,7 +16,6 @@
 #include "wingsyntaxhighlighter.h"
 #include "abstracthighlighter_p.h"
 #include "definition_p.h"
-#include "foldingregion.h"
 #include "format.h"
 #include "format_p.h"
 #include "themedata_p.h"
@@ -28,13 +27,6 @@
 Q_DECLARE_METATYPE(QTextBlock)
 
 using namespace KSyntaxHighlighting;
-
-class WingTextBlockUserData : public QTextBlockUserData {
-public:
-    State state;
-    QList<FoldingRegion> foldingRegions;
-    QString symbolID;
-};
 
 class WingSyntaxHighlighterPrivate : public AbstractHighlighterPrivate {
 public:
@@ -189,6 +181,10 @@ QTextBlock WingSyntaxHighlighter::findFoldingRegionEnd(
     return QTextBlock();
 }
 
+WingTextBlockUserData *WingSyntaxHighlighter::createTextBlockUserData() {
+    return new WingTextBlockUserData;
+}
+
 void WingSyntaxHighlighter::setTabWidth(int width) { m_tabCharSize = width; }
 
 int WingSyntaxHighlighter::tabWidth() const { return m_tabCharSize; }
@@ -338,7 +334,7 @@ void WingSyntaxHighlighter::setSymbolMark(QTextBlock &block,
         data->symbolID = id;
     } else {
         // first time
-        data = new WingTextBlockUserData;
+        data = createTextBlockUserData();
         data->symbolID = id;
         block.setUserData(data);
     }
@@ -386,7 +382,7 @@ void WingSyntaxHighlighter::highlightBlock(const QString &text) {
     auto data = dynamic_cast<WingTextBlockUserData *>(currentBlockUserData());
     if (!data) {
         // first time we highlight this
-        data = new WingTextBlockUserData;
+        data = createTextBlockUserData();
         data->state = std::move(newState);
         data->foldingRegions = d->foldingRegions;
         setCurrentBlockUserData(data);

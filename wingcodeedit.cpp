@@ -564,8 +564,7 @@ void WingCodeEdit::updateLiveSearch() {
 void WingCodeEdit::updateExtraSelections() {
     QPlainTextEdit::setExtraSelections(
         m_braceMatch + m_searchResults + m_occurrencesExtraSelections +
-        m_squigglesExtraSelections + m_squigglesLineExtraSelections +
-        m_extraSelections);
+        m_squigglesExtraSelections + m_squigglesLineExtraSelections);
 }
 
 void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
@@ -579,59 +578,6 @@ void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
         m_highlighter = newHighlighter;
         m_highlighter->rehighlight();
     }
-}
-
-void WingCodeEdit::setExtraSelections(
-    const QList<QTextEdit::ExtraSelection> &selections) {
-    m_extraSelections = selections;
-    updateExtraSelections();
-}
-
-QList<QTextEdit::ExtraSelection> WingCodeEdit::extraSelections() const {
-    return m_extraSelections;
-}
-
-QTextEdit::ExtraSelection
-WingCodeEdit::addExtraSelection(const QPair<int, int> &start,
-                                const QPair<int, int> &stop,
-                                const QTextCharFormat &format) {
-    auto cursor = textCursor();
-
-    cursor.movePosition(QTextCursor::Start);
-    cursor.movePosition(QTextCursor::NextBlock, QTextCursor::MoveAnchor,
-                        start.first - 1);
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor,
-                        start.second);
-
-    if (stop.first > start.first)
-        cursor.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor,
-                            stop.first - start.first);
-
-    cursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
-    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                        stop.second);
-
-    QTextEdit::ExtraSelection exsel;
-    exsel.cursor = cursor;
-    exsel.format = format;
-    m_extraSelections.append(exsel);
-    updateExtraSelections();
-
-    return exsel;
-}
-
-QTextEdit::ExtraSelection
-WingCodeEdit::addExtraSelection(const QTextBlock &block,
-                                const QTextCharFormat &format) {
-    QTextCursor cursor(block);
-    cursor.movePosition(QTextCursor::NextBlock, QTextCursor::KeepAnchor);
-    QTextEdit::ExtraSelection exsel;
-    exsel.cursor = cursor;
-    exsel.format = format;
-    m_extraSelections.append(exsel);
-    updateExtraSelections();
-    return exsel;
 }
 
 void WingCodeEdit::addSquiggle(SeverityLevel level,
@@ -810,7 +756,7 @@ void WingCodeEdit::addSymbolMark(int line, const QString &id) {
 
     auto block = document()->findBlockByNumber(line - 1);
     if (block.isValid()) {
-        WingSyntaxHighlighter::setSymbolMark(block, id);
+        m_highlighter->setSymbolMark(block, id);
         repaintMargins();
     }
 }
@@ -818,7 +764,7 @@ void WingCodeEdit::addSymbolMark(int line, const QString &id) {
 QString WingCodeEdit::symbolMark(int line) const {
     auto block = document()->findBlockByNumber(line - 1);
     if (block.isValid()) {
-        return WingSyntaxHighlighter::symbolMarkID(block);
+        return m_highlighter->symbolMarkID(block);
     }
     return {};
 }
@@ -826,7 +772,7 @@ QString WingCodeEdit::symbolMark(int line) const {
 void WingCodeEdit::removeSymbolMark(int line) {
     auto block = document()->findBlockByNumber(line - 1);
     if (block.isValid()) {
-        WingSyntaxHighlighter::clearSymbolMark(block);
+        m_highlighter->clearSymbolMark(block);
         repaintMargins();
     }
 }

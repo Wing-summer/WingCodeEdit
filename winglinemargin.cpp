@@ -63,7 +63,7 @@ void WingLineMargin::paintEvent(QPaintEvent *paintEvent) {
     while (block.isValid() && top <= paintEvent->rect().bottom()) {
         if (block.isVisible()) {
             if (m_editor->showSymbolMark()) {
-                auto symid = WingSyntaxHighlighter::symbolMarkID(block);
+                auto symid = m_editor->highlighter()->symbolMarkID(block);
                 if (!symid.isEmpty()) {
                     auto sym =
                         WingSymbolCenter::instance().symbolFromName(symid);
