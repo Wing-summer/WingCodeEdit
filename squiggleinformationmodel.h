@@ -14,8 +14,12 @@ public:
 public:
     explicit SquiggleInformationModel(WingCodeEdit *editor,
                                       QObject *parent = nullptr);
+    explicit SquiggleInformationModel(QObject *parent = nullptr);
 
 public:
+    WingCodeEdit *editor() const;
+    void setEditor(WingCodeEdit *newEditor);
+
     void setSeverityLevelIcon(SeverityLevel level, const QIcon &icon);
     QIcon severityLevelIcon(SeverityLevel level) const;
 

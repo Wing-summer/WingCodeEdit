@@ -19,6 +19,11 @@ SquiggleInformationModel::SquiggleInformationModel(WingCodeEdit *editor,
             [this]() { emit layoutChanged(); });
 }
 
+SquiggleInformationModel::SquiggleInformationModel(QObject *parent)
+    : QAbstractListModel(parent), _editor(nullptr) {
+    _icons.resize(int(SeverityLevel::MAX_LEVEL));
+}
+
 void SquiggleInformationModel::setSeverityLevelIcon(SeverityLevel level,
                                                     const QIcon &icon) {
     if (level != SeverityLevel::MAX_LEVEL) {
@@ -34,24 +39,46 @@ QIcon SquiggleInformationModel::severityLevelIcon(SeverityLevel level) const {
 }
 
 int SquiggleInformationModel::rowCount(const QModelIndex &parent) const {
-    return _editor->m_squiggles.size();
+    if (_editor) {
+        return _editor->m_squiggles.size();
+    } else {
+        return 0;
+    }
 }
 
 QVariant SquiggleInformationModel::data(const QModelIndex &index,
                                         int role) const {
-    auto idx = index.row();
-    auto data = _editor->m_squiggles.at(idx);
-    switch (role) {
-    case Qt::DecorationRole:
-        return _icons.at(int(data.level));
-    case Qt::DisplayRole:
-        return data.tooltip + tr("[row: %1, col: %2]")
-                                  .arg(data.start.first)
-                                  .arg(data.start.second)
-                                  .prepend(' ');
-    case Qt::ToolTipRole:
-        return data.tooltip;
+    if (_editor) {
+        auto idx = index.row();
+        auto data = _editor->m_squiggles.at(idx);
+        switch (role) {
+        case Qt::DecorationRole:
+            return _icons.at(int(data.level));
+        case Qt::DisplayRole:
+            return data.tooltip + tr("[row: %1, col: %2]")
+                                      .arg(data.start.first)
+                                      .arg(data.start.second)
+                                      .prepend(' ');
+        case Qt::ToolTipRole:
+            return data.tooltip;
+        }
     }
-
     return {};
+}
+
+WingCodeEdit *SquiggleInformationModel::editor() const { return _editor; }
+
+void SquiggleInformationModel::setEditor(WingCodeEdit *newEditor) {
+    if (_editor == newEditor) {
+        return;
+    }
+    if (_editor) {
+        _editor->disconnect(this);
+    }
+    _editor = newEditor;
+    if (_editor) {
+        connect(_editor, &WingCodeEdit::squiggleItemChanged, this,
+                [this]() { emit layoutChanged(); });
+    }
+    emit layoutChanged();
 }
