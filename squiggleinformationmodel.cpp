@@ -79,6 +79,10 @@ void SquiggleInformationModel::setEditor(WingCodeEdit *newEditor) {
     if (_editor) {
         connect(_editor, &WingCodeEdit::squiggleItemChanged, this,
                 [this]() { emit layoutChanged(); });
+        connect(_editor, &WingCodeEdit::destroyed, this, [this]() {
+            _editor->disconnect(this);
+            _editor = nullptr;
+        });
     }
     emit layoutChanged();
 }
