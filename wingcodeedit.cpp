@@ -31,6 +31,7 @@
 #include <QStack>
 #include <QStyle>
 #include <QStyleHints>
+#include <QTimer>
 #include <QToolTip>
 #include <QUndoStack>
 #include <QtMath>
@@ -49,6 +50,8 @@ WingCodeEdit::WingCodeEdit(QWidget *parent)
 
     m_highlighter = new WingSyntaxHighlighter(document());
     m_highlighter->setTabWidth(m_tabCharSize);
+
+    m_sighlp = new WingSignatureTooltip(this);
 
     connect(this, &QPlainTextEdit::blockCountChanged, this,
             &WingCodeEdit::updateMargins);
@@ -720,8 +723,11 @@ void WingCodeEdit::setTheme(const KSyntaxHighlighting::Theme &theme) {
         result.format.setBackground(m_searchBg);
     updateTextMetrics();
     updateCursor();
-    highlightAllSquiggle();
-    highlightOccurrences();
+
+    QTimer::singleShot(100, this, [this]() {
+        highlightAllSquiggle();
+        highlightOccurrences();
+    });
 
     emit themeChanged();
 }
@@ -795,6 +801,14 @@ void WingCodeEdit::ensureLineVisible(int lineNumber) {
         // Restore the original cursor
         setTextCursor(savedCursor);
     }
+}
+
+void WingCodeEdit::showHelpTooltip(const QList<Signature> &sigs,
+                                   qsizetype index) {
+    auto cr = this->cursorRect();
+    auto p = cr.bottomLeft();
+    auto gp = mapToGlobal(p);
+    m_sighlp->showSignatures(gp, sigs, index);
 }
 
 QString WingCodeEdit::cursorNextChar(const QTextCursor &cursor) {
@@ -1322,6 +1336,22 @@ void WingCodeEdit::zoomReset() {
 }
 
 void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
+    if (m_sighlp->isVisible()) {
+        if (e->key() == Qt::Key_Down) {
+            m_sighlp->nextSignature();
+            return;
+        }
+        if (e->key() == Qt::Key_Up) {
+            m_sighlp->prevSignature();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Escape) {
+            m_sighlp->hideTooltip();
+            return;
+        }
+    }
+
     if (processCompletionBegin(e)) {
         return;
     }
@@ -1931,7 +1961,7 @@ void WingCodeEdit::onCompletion(const QModelIndex &index) {
         tc.removeSelectedText();
     }
 
-    auto completion = index.data(Qt::UserRole).toString();
+    auto completion = index.data(m_completer->completionRole()).toString();
     tc.insertText(completion);
     setTextCursor(tc);
 }

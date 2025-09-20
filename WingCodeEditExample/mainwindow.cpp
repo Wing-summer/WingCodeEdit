@@ -15,9 +15,9 @@
 
 #include "mainwindow.h"
 
-#include "squiggleinformationmodel.h"
 #include "wingcodeedit.h"
 #include "wingcompleter.h"
+#include "wingsquiggleinfomodel.h"
 #include "wingsymbolcenter.h"
 
 #include <KSyntaxHighlighting/Definition>
@@ -89,6 +89,22 @@ int main(){
         KSyntaxHighlighting::Repository::DarkTheme));
 
     auto cp = new WingCompleter(ce);
+    connect(cp, QOverload<const QModelIndex &>::of(&WingCompleter::activated),
+            this, [ce](const QModelIndex &index) {
+                QList<Signature> sigs;
+                for (int i = 0; i < 3; ++i) {
+                    Signature sig;
+                    sig.label =
+                        index.data().toString() + QStringLiteral("(%1)").arg(i);
+                    sig.doc = R"(```c
+int test;
+```
+)";
+                    sigs.append(sig);
+                }
+
+                ce->showHelpTooltip(sigs);
+            });
 
     auto mo = new QStandardItemModel(this);
     auto icon = QIcon(":/WingCodeEditExample/bp.png");
@@ -115,8 +131,8 @@ int main(){
     vbox->addWidget(ce);
 
     auto diag = new QListView(this);
-    auto dv = new SquiggleInformationModel(ce, this);
-    dv->setSeverityLevelIcon(SquiggleInformationModel::SeverityLevel::Warning,
+    auto dv = new WingSquiggleInfoModel(ce, this);
+    dv->setSeverityLevelIcon(WingSquiggleInfoModel::SeverityLevel::Warning,
                              QIcon(":/WingCodeEditExample/warn.png"));
     diag->setModel(dv);
     vbox->addWidget(diag);

@@ -1,9 +1,24 @@
-#include "squiggleinformationmodel.h"
+/****************************************************************************
+**
+** Copyright (C) 2025-2028 WingSummer
+**
+** This file may be used under the terms of the GNU General Public License
+** version 3 as published by the Free Software Foundation.
+**
+** This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
+** WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+**
+** You should have received a copy of the GNU General Public License version 3
+** along with this program. If not, see <https://www.gnu.org/licenses/>.
+**
+****************************************************************************/
+
+#include "wingsquiggleinfomodel.h"
 
 #include "wingcodeedit.h"
 
-SquiggleInformationModel::SquiggleInformationModel(WingCodeEdit *editor,
-                                                   QObject *parent)
+WingSquiggleInfoModel::WingSquiggleInfoModel(WingCodeEdit *editor,
+                                             QObject *parent)
     : QAbstractListModel(parent), _editor(editor) {
     Q_ASSERT(editor);
     static_assert(int(SeverityLevel::Error) ==
@@ -19,26 +34,26 @@ SquiggleInformationModel::SquiggleInformationModel(WingCodeEdit *editor,
             [this]() { emit layoutChanged(); });
 }
 
-SquiggleInformationModel::SquiggleInformationModel(QObject *parent)
+WingSquiggleInfoModel::WingSquiggleInfoModel(QObject *parent)
     : QAbstractListModel(parent), _editor(nullptr) {
     _icons.resize(int(SeverityLevel::MAX_LEVEL));
 }
 
-void SquiggleInformationModel::setSeverityLevelIcon(SeverityLevel level,
-                                                    const QIcon &icon) {
+void WingSquiggleInfoModel::setSeverityLevelIcon(SeverityLevel level,
+                                                 const QIcon &icon) {
     if (level != SeverityLevel::MAX_LEVEL) {
         _icons[int(level)] = icon;
     }
 }
 
-QIcon SquiggleInformationModel::severityLevelIcon(SeverityLevel level) const {
+QIcon WingSquiggleInfoModel::severityLevelIcon(SeverityLevel level) const {
     if (level == SeverityLevel::MAX_LEVEL) {
         return {};
     }
     return _icons[int(level)];
 }
 
-int SquiggleInformationModel::rowCount(const QModelIndex &parent) const {
+int WingSquiggleInfoModel::rowCount(const QModelIndex &parent) const {
     if (_editor) {
         return _editor->m_squiggles.size();
     } else {
@@ -46,8 +61,7 @@ int SquiggleInformationModel::rowCount(const QModelIndex &parent) const {
     }
 }
 
-QVariant SquiggleInformationModel::data(const QModelIndex &index,
-                                        int role) const {
+QVariant WingSquiggleInfoModel::data(const QModelIndex &index, int role) const {
     if (_editor) {
         auto idx = index.row();
         auto data = _editor->m_squiggles.at(idx);
@@ -66,9 +80,9 @@ QVariant SquiggleInformationModel::data(const QModelIndex &index,
     return {};
 }
 
-WingCodeEdit *SquiggleInformationModel::editor() const { return _editor; }
+WingCodeEdit *WingSquiggleInfoModel::editor() const { return _editor; }
 
-void SquiggleInformationModel::setEditor(WingCodeEdit *newEditor) {
+void WingSquiggleInfoModel::setEditor(WingCodeEdit *newEditor) {
     if (_editor == newEditor) {
         return;
     }

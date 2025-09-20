@@ -1,6 +1,6 @@
 ## WingCodeEdit
 
-A Lightweight Qt-based code and text editor widget for Qt5/Qt6. This widget comes from [qtextpad](https://github.com/zrax/qtextpad) and I make some improvements such as newer intergrated syntax highlighting which powers [Kate](https://kate-editor.org/), code completing and symbol mark.
+A Lightweight Qt-based code and text editor widget for Qt6. This widget comes from [qtextpad](https://github.com/zrax/qtextpad) and I make some improvements such as newer intergrated syntax highlighting which powers [Kate](https://kate-editor.org/), code completing and symbol mark.
 
 > This project is used for scripting with [WingHexExplorer2](https://github.com/Wing-summer/WingHexExplorer2) in version 2.2.1 newer or later.
 
@@ -13,6 +13,8 @@ A Lightweight Qt-based code and text editor widget for Qt5/Qt6. This widget come
 * Many helpful code editing features.
 * Code completion is supported.
 * Symbol mark that can be used to display bookmarks or breakpoints.
+* Model to show squiggle information.
+* A lite widget to show tooltip signature.
 
 ## License
 

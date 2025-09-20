@@ -21,6 +21,8 @@ if(BUILD_EXAMPLES)
     add_subdirectory(WingCodeEditExample)
 endif()
 
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
 add_library(
     WingCodeEdit STATIC
     wingcodeedit.cpp
@@ -35,13 +37,16 @@ add_library(
     wingcodepopup.cpp
     wingsymbolcenter.h
     wingsymbolcenter.cpp
-    squiggleinformationmodel.h
-    squiggleinformationmodel.cpp
-    wingtextblockuserdata.h)
+    wingsquiggleinfomodel.h
+    wingsquiggleinfomodel.cpp
+    wingtextblockuserdata.h
+    wingsignaturetooltip.h
+    wingsignaturetooltip.cpp)
 
 target_link_libraries(
     WingCodeEdit PUBLIC Qt${QT_VERSION_MAJOR}::Widgets
                         Qt${QT_VERSION_MAJOR}::PrintSupport KSyntaxHighlighting)
+target_link_libraries(WingCodeEdit PRIVATE Qt6::Widgets)
 
 target_include_directories(WingCodeEdit PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 

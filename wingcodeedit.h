@@ -16,6 +16,8 @@
 #ifndef WINGCODEEDIT_H
 #define WINGCODEEDIT_H
 
+#include "wingsignaturetooltip.h"
+
 #include <KSyntaxHighlighting/Theme>
 #include <QPlainTextEdit>
 #include <QTextBlock>
@@ -34,7 +36,7 @@ class QPrinter;
 class WingCodeEdit : public QPlainTextEdit {
     Q_OBJECT
     friend class WingLineMargin;
-    friend class SquiggleInformationModel;
+    friend class WingSquiggleInfoModel;
 
 public:
     enum class IndentationMode { IndentSpaces, IndentTabs, IndentMixed };
@@ -191,6 +193,8 @@ public slots:
 
     void ensureLineVisible(int lineNumber);
 
+    void showHelpTooltip(const QList<Signature> &sigs, qsizetype index = 0);
+
 private:
     QString cursorNextChar(const QTextCursor &cursor);
     QString cursorPrevChar(const QTextCursor &cursor);
@@ -274,6 +278,7 @@ private:
     WingCompleter *m_completer;
     WingLineMargin *m_lineMargin;
     WingSyntaxHighlighter *m_highlighter;
+    WingSignatureTooltip *m_sighlp;
 
     // color caches
     QColor m_lineMarginBg, m_lineMarginFg;
