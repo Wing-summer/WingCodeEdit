@@ -786,20 +786,15 @@ void WingCodeEdit::removeSymbolMark(int line) {
 void WingCodeEdit::ensureLineVisible(int lineNumber) {
     auto doc = document();
     auto block = doc->findBlockByNumber(lineNumber - 1);
-
     if (block.isValid()) {
-        // Save the current cursor
-        QTextCursor savedCursor = textCursor();
-
-        // Create a cursor for the target line
-        QTextCursor cursor(block);
-
-        // Temporarily set the cursor and ensure visibility
-        setTextCursor(cursor);
-        ensureCursorVisible();
-
-        // Restore the original cursor
-        setTextCursor(savedCursor);
+        QScrollBar *vbar = verticalScrollBar();
+        QRect rect =
+            blockBoundingGeometry(block).translated(contentOffset()).toRect();
+        if (rect.top() < viewport()->rect().top() ||
+            rect.bottom() > viewport()->rect().bottom()) {
+            vbar->setValue(vbar->value() + rect.top() -
+                           viewport()->height() / 2);
+        }
     }
 }
 
