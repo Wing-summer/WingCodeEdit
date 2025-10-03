@@ -146,14 +146,10 @@ void WingSignatureTooltip::updateDisplay() {
         m_textDoc->setVisible(true);
     }
 
-    if (m_signatures.count() > 1) {
-        m_countLabel->setText(QStringLiteral("▴ %1 / %2 ▾")
-                                  .arg(m_currentIndex + 1)
-                                  .arg(m_signatures.count()));
-        m_countLabel->show();
-    } else {
-        m_countLabel->hide();
-    }
+    m_countLabel->setText(QStringLiteral("▴ %1 / %2 ▾")
+                              .arg(m_currentIndex + 1)
+                              .arg(m_signatures.count()));
+    m_countLabel->show();
 
     adjustSize();
 }
