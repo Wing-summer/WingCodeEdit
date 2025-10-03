@@ -37,6 +37,9 @@ public:
 
     virtual QString wordSeperators() const;
 
+    bool enabled() const;
+    void setEnabled(bool newEnabled);
+
 public slots:
     void setTriggerList(const QStringList &triggers);
 
@@ -51,6 +54,7 @@ private:
 
     QStringList m_triggerList;
     qint32 m_triggerAmount;
+    bool _enabled = true;
 };
 
 #endif // WINGCOMPLETER_H

@@ -798,12 +798,18 @@ void WingCodeEdit::ensureLineVisible(int lineNumber) {
     }
 }
 
-void WingCodeEdit::showHelpTooltip(const QList<Signature> &sigs,
-                                   qsizetype index) {
+void WingCodeEdit::showHelpTooltip(
+    const QList<WingSignatureTooltip::Signature> &sigs, qsizetype index) {
     auto cr = this->cursorRect();
     auto p = cr.bottomLeft();
     auto gp = mapToGlobal(p);
     m_sighlp->showSignatures(gp, sigs, index);
+}
+
+void WingCodeEdit::hideHelpTooltip() { m_sighlp->hideTooltip(); }
+
+bool WingCodeEdit::isHelpTooltipVisible() const {
+    return m_sighlp->isVisible();
 }
 
 QString WingCodeEdit::cursorNextChar(const QTextCursor &cursor) {

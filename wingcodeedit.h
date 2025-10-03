@@ -180,7 +180,7 @@ public slots:
     void setTabWidth(int width);
     void setIndentWidth(int width);
 
-    void setIndentationMode(IndentationMode mode);
+    void setIndentationMode(WingCodeEdit::IndentationMode mode);
 
     void setCompleter(WingCompleter *completer);
     void setDefaultTheme();
@@ -193,7 +193,10 @@ public slots:
 
     void ensureLineVisible(int lineNumber);
 
-    void showHelpTooltip(const QList<Signature> &sigs, qsizetype index = 0);
+    void showHelpTooltip(const QList<WingSignatureTooltip::Signature> &sigs,
+                         qsizetype index = 0);
+    void hideHelpTooltip();
+    bool isHelpTooltipVisible() const;
 
 private:
     QString cursorNextChar(const QTextCursor &cursor);

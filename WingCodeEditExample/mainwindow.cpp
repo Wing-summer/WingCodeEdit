@@ -91,9 +91,9 @@ int main(){
     auto cp = new WingCompleter(ce);
     connect(cp, QOverload<const QModelIndex &>::of(&WingCompleter::activated),
             this, [ce](const QModelIndex &index) {
-                QList<Signature> sigs;
+                QList<WingSignatureTooltip::Signature> sigs;
                 for (int i = 0; i < 3; ++i) {
-                    Signature sig;
+                    WingSignatureTooltip::Signature sig;
                     sig.label =
                         index.data().toString() + QStringLiteral("(%1)").arg(i);
                     sig.doc = R"(```c

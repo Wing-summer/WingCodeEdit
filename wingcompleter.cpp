@@ -45,7 +45,7 @@ void WingCompleter::setTriggerList(const QStringList &triggers) {
 
 void WingCompleter::trigger(const QString &trigger, const QString &content,
                             const QRect &cursorRect) {
-    if (processTrigger(trigger, content)) {
+    if (_enabled && processTrigger(trigger, content)) {
         auto cr = cursorRect;
         cr.setWidth(m_popUp->sizeHintForColumn(0) +
                     m_popUp->verticalScrollBar()->sizeHint().width());
@@ -58,6 +58,9 @@ void WingCompleter::trigger(const QString &trigger, const QString &content,
 
 bool WingCompleter::processTrigger(const QString &trigger,
                                    const QString &content) {
+    if (!_enabled) {
+        return false;
+    }
     Q_UNUSED(trigger);
     auto seps = wordSeperators();
     auto r =
@@ -67,6 +70,10 @@ bool WingCompleter::processTrigger(const QString &trigger,
     setCompletionPrefix(content.sliced(idx));
     return true;
 }
+
+bool WingCompleter::enabled() const { return _enabled; }
+
+void WingCompleter::setEnabled(bool newEnabled) { _enabled = newEnabled; }
 
 QString WingCompleter::wordSeperators() const {
     static QString eow(QStringLiteral("~!@#$%^&*()_+{}|:\"<>?,./;'[]\\-="));

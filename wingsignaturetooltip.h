@@ -20,14 +20,14 @@
 #include <QTextBrowser>
 #include <QWidget>
 
-struct Signature {
-    QString label; // e.g. "int foo(int a, const QString &b)"
-    QString doc;   // documentation
-};
-
 class WingSignatureTooltip : public QWidget {
     Q_OBJECT
 public:
+    struct Signature {
+        QString label; // e.g. "int foo(int a, const QString &b)"
+        QString doc;   // documentation
+    };
+
     enum class SignatureHelpType { PlainText, MarkDown, Html };
 
 public:
@@ -40,7 +40,8 @@ public slots:
     void nextSignature();
     void prevSignature();
 
-    void showSignatures(const QPoint &globalPos, const QList<Signature> &sigs,
+    void showSignatures(const QPoint &globalPos,
+                        const QList<WingSignatureTooltip::Signature> &sigs,
                         qsizetype index = 0);
     void hideTooltip();
 
