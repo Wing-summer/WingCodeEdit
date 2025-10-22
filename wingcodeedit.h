@@ -133,6 +133,7 @@ public:
     KSyntaxHighlighting::Theme theme() const;
 
     QString symbolMark(int line) const;
+    bool isHelpTooltipVisible() const;
 
     void setHighlighter(WingSyntaxHighlighter *newHighlighter);
 
@@ -196,7 +197,6 @@ public slots:
     void showHelpTooltip(const QList<WingSignatureTooltip::Signature> &sigs,
                          qsizetype index = 0);
     void hideHelpTooltip();
-    bool isHelpTooltipVisible() const;
 
 private:
     QString cursorNextChar(const QTextCursor &cursor);

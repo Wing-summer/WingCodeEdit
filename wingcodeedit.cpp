@@ -784,18 +784,11 @@ void WingCodeEdit::removeSymbolMark(int line) {
 }
 
 void WingCodeEdit::ensureLineVisible(int lineNumber) {
-    auto doc = document();
-    auto block = doc->findBlockByNumber(lineNumber - 1);
-    if (block.isValid()) {
-        QScrollBar *vbar = verticalScrollBar();
-        QRect rect =
-            blockBoundingGeometry(block).translated(contentOffset()).toRect();
-        if (rect.top() < viewport()->rect().top() ||
-            rect.bottom() > viewport()->rect().bottom()) {
-            vbar->setValue(vbar->value() + rect.top() -
-                           viewport()->height() / 2);
-        }
-    }
+    QTextCursor cursor = textCursor();
+    cursor.movePosition(QTextCursor::Start);
+    cursor.movePosition(QTextCursor::Down, QTextCursor::MoveAnchor, lineNumber);
+    setTextCursor(cursor);
+    centerCursor();
 }
 
 void WingCodeEdit::showHelpTooltip(
