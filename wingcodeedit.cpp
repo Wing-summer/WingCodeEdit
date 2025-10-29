@@ -1330,6 +1330,16 @@ void WingCodeEdit::zoomReset() {
 }
 
 void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
+    if (isReadOnly()) {
+        if (processKeyShortcut(e)) {
+            return;
+        }
+
+        updateCursor();
+        QPlainTextEdit::keyPressEvent(e);
+        return;
+    }
+
     if (m_sighlp->isVisible()) {
         if (e->key() == Qt::Key_Down) {
             m_sighlp->nextSignature();
@@ -1765,14 +1775,14 @@ bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
 
     // Qt's default implementation doesn't correctly adjust the cursor
     // X position after deleting a selection.
-    if (e->matches(QKeySequence::Delete)) {
+    if (!isReadOnly() && e->matches(QKeySequence::Delete)) {
         QTextCursor cursor = textCursor();
         cursor.deleteChar();
         cursor.setVerticalMovementX(-1);
         setTextCursor(cursor);
         return false; // need more processing
     }
-    if (e->matches(QKeySequence::Backspace) ||
+    if (!isReadOnly() && e->matches(QKeySequence::Backspace) ||
         (e->key() == Qt::Key_Backspace &&
          (e->modifiers() & ~Qt::ShiftModifier) == 0)) {
         QTextCursor cursor = textCursor();
@@ -1801,7 +1811,7 @@ bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
     }
 
     // Handle newline insertion
-    if (e->matches(QKeySequence::InsertParagraphSeparator)) {
+    if (!isReadOnly() && e->matches(QKeySequence::InsertParagraphSeparator)) {
         QTextCursor cursor = textCursor();
         cursor.beginEditBlock();
 
@@ -1850,7 +1860,7 @@ bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
         updateCursor();
         return true;
     }
-    if (e->matches(QKeySequence::InsertLineSeparator)) {
+    if (!isReadOnly() && e->matches(QKeySequence::InsertLineSeparator)) {
         // Don't allow QPlainTextEdit to insert a soft break :(
         QKeyEvent retnEvent(e->type(), Qt::Key_Enter, Qt::NoModifier,
                             e->nativeScanCode(), e->nativeVirtualKey(),
