@@ -53,6 +53,29 @@ QIcon WingSquiggleInfoModel::severityLevelIcon(SeverityLevel level) const {
     return _icons[int(level)];
 }
 
+QPair<int, int>
+WingSquiggleInfoModel::squiggleInfoPosStart(qsizetype index) const {
+    auto data = _editor->m_squiggles.at(index);
+    return data.start;
+}
+
+QPair<int, int>
+WingSquiggleInfoModel::squiggleInfoPosStop(qsizetype index) const {
+    auto data = _editor->m_squiggles.at(index);
+    return data.stop;
+}
+
+QString WingSquiggleInfoModel::squiggleInfoText(qsizetype index) const {
+    auto data = _editor->m_squiggles.at(index);
+    return data.tooltip;
+}
+
+WingSquiggleInfoModel::SeverityLevel
+WingSquiggleInfoModel::squiggleInfoSeverityLevel(qsizetype index) const {
+    auto data = _editor->m_squiggles.at(index);
+    return SeverityLevel(data.level);
+}
+
 int WingSquiggleInfoModel::rowCount(const QModelIndex &parent) const {
     if (_editor) {
         return _editor->m_squiggles.size();

@@ -38,6 +38,12 @@ public:
     void setSeverityLevelIcon(SeverityLevel level, const QIcon &icon);
     QIcon severityLevelIcon(SeverityLevel level) const;
 
+public:
+    SeverityLevel squiggleInfoSeverityLevel(qsizetype index) const;
+    QPair<int, int> squiggleInfoPosStart(qsizetype index) const;
+    QPair<int, int> squiggleInfoPosStop(qsizetype index) const;
+    QString squiggleInfoText(qsizetype index) const;
+
     // QAbstractItemModel interface
 public:
     virtual int rowCount(const QModelIndex &parent) const override;
