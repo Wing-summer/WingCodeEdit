@@ -23,8 +23,11 @@
 class WingCodeEdit;
 
 class WingSquiggleInfoModel : public QAbstractListModel {
+    Q_OBJECT
+
 public:
     enum class SeverityLevel { Hint, Information, Warning, Error, MAX_LEVEL };
+    Q_ENUM(SeverityLevel)
 
 public:
     explicit WingSquiggleInfoModel(WingCodeEdit *editor,
