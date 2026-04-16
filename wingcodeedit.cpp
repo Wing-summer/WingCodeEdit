@@ -566,8 +566,9 @@ void WingCodeEdit::updateLiveSearch() {
 
 void WingCodeEdit::updateExtraSelections() {
     QPlainTextEdit::setExtraSelections(
-        m_braceMatch + m_searchResults + m_occurrencesExtraSelections +
-        m_squigglesExtraSelections + m_squigglesLineExtraSelections);
+        m_extraSelections + m_braceMatch + m_searchResults +
+        m_occurrencesExtraSelections + m_squigglesExtraSelections +
+        m_squigglesLineExtraSelections);
 }
 
 void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
@@ -581,6 +582,16 @@ void WingCodeEdit::setHighlighter(WingSyntaxHighlighter *newHighlighter) {
         m_highlighter = newHighlighter;
         m_highlighter->rehighlight();
     }
+}
+
+QList<QTextEdit::ExtraSelection> WingCodeEdit::extraSelections() const {
+    return m_extraSelections;
+}
+
+void WingCodeEdit::setExtraSelections(
+    const QList<QTextEdit::ExtraSelection> &selections) {
+    m_extraSelections = selections;
+    updateExtraSelections();
 }
 
 void WingCodeEdit::addSquiggle(SeverityLevel level,
@@ -910,6 +921,10 @@ bool WingCodeEdit::event(QEvent *e) {
 
 QString WingCodeEdit::syntaxName() const {
     return m_highlighter->definition().name();
+}
+
+KSyntaxHighlighting::Definition WingCodeEdit::syntaxDefinition() const {
+    return m_highlighter->definition();
 }
 
 void WingCodeEdit::updateMargins() {

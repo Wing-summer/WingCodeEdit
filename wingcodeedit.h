@@ -121,21 +121,25 @@ public:
     static const KSyntaxHighlighting::Definition &nullSyntax();
 
     void setDefaultFont(const QFont &font);
+
+    KSyntaxHighlighting::Theme theme() const;
     QString themeName() const;
 
     QString syntaxName() const;
+    KSyntaxHighlighting::Definition syntaxDefinition() const;
 
     QFont defaultFont() const;
 
     WingCompleter *completer() const;
     WingSyntaxHighlighter *highlighter() const;
 
-    KSyntaxHighlighting::Theme theme() const;
-
     QString symbolMark(int line) const;
     bool isHelpTooltipVisible() const;
 
     void setHighlighter(WingSyntaxHighlighter *newHighlighter);
+
+    QList<QTextEdit::ExtraSelection> extraSelections() const;
+    void setExtraSelections(const QList<QTextEdit::ExtraSelection> &selections);
 
 public:
     /**
@@ -312,6 +316,7 @@ private:
     QPixmap m_foldOpen, m_foldClosed;
 
     SearchParams m_liveSearch;
+    QList<QTextEdit::ExtraSelection> m_extraSelections;
     QList<QTextEdit::ExtraSelection> m_braceMatch;
     QList<QTextEdit::ExtraSelection> m_searchResults;
     QList<QTextEdit::ExtraSelection> m_squigglesExtraSelections,
