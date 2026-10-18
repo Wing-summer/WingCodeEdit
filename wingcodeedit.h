@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2025-2028 WingSummer
+** Copyright (C) 2026-2029 WingSummer
 **
 ** This file may be used under the terms of the GNU General Public License
 ** version 3 as published by the Free Software Foundation.
@@ -16,11 +16,15 @@
 #ifndef WINGCODEEDIT_H
 #define WINGCODEEDIT_H
 
+#include "wingcompleter.h"
 #include "wingsignaturetooltip.h"
 
 #include <KSyntaxHighlighting/Theme>
 #include <QPlainTextEdit>
 #include <QTextBlock>
+
+#include <functional>
+#include <optional>
 
 namespace KSyntaxHighlighting {
 class Repository;
@@ -29,7 +33,6 @@ class Theme;
 } // namespace KSyntaxHighlighting
 
 class WingSyntaxHighlighter;
-class WingCompleter;
 class WingLineMargin;
 class QPrinter;
 
@@ -41,6 +44,24 @@ class WingCodeEdit : public QPlainTextEdit {
 public:
     enum class IndentationMode { IndentSpaces, IndentTabs, IndentMixed };
     Q_ENUM(IndentationMode)
+
+    enum class IndentationTrigger { NewLine, TextInput };
+    Q_ENUM(IndentationTrigger)
+
+    struct IndentationContext {
+        const WingCodeEdit &editor;
+        // Before newline insertion, or after typing for current-line policies.
+        QTextCursor cursor;
+        // Offset past a non-code prefix in the current block.
+        int codeStart;
+        IndentationTrigger trigger;
+    };
+
+    // Called synchronously; callbacks must not modify the document.
+    // For newlines nullopt inherits indentation; for current lines it does
+    // nothing. Empty strings request no indentation. Only spaces/tabs are valid.
+    using IndentationStrategy =
+        std::function<std::optional<QString>(const IndentationContext &)>;
 
     struct SearchParams {
         QString searchText;
@@ -99,6 +120,12 @@ public:
 
     void setAutoIndent(bool ai);
     bool autoIndent() const;
+
+    // The editor owns the callback. Pass {} to restore the default behavior.
+    void setIndentationStrategy(IndentationStrategy strategy);
+
+    // Also call after completion edits, inside the completion's edit block.
+    void reindentCurrentLine();
 
     bool showLongLineEdge() const;
     int longLineWidth() const;
@@ -229,6 +256,9 @@ protected:
     bool processCompletionBegin(QKeyEvent *e);
     bool processCompletionEnd(QKeyEvent *e);
     void processDefaultKeyPressEvent(QKeyEvent *e);
+    QString indentationForNewLine(const QTextCursor &cursor) const;
+    // Offset past a block's non-code prefix; -1 marks a protected block.
+    virtual int blockTextStart(const QTextBlock &block) const;
 
 private:
     bool processKeyShortcut(QKeyEvent *e);
@@ -309,6 +339,7 @@ private:
     int m_longLineMarker;
     WingCodeEditConfigs m_config;
     IndentationMode m_indentationMode;
+    IndentationStrategy m_indentationStrategy;
     int m_originalFontSize;
 
     QColor m_editorBg;

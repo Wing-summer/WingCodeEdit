@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2025-2028 WingSummer
+** Copyright (C) 2026-2029 WingSummer
 **
 ** This file may be used under the terms of the GNU General Public License
 ** version 3 as published by the Free Software Foundation.
@@ -38,6 +38,9 @@
 
 #include <KSyntaxHighlighting/Repository>
 #include <KSyntaxHighlighting/Theme>
+
+#include <algorithm>
+#include <utility>
 
 WingCodeEdit::WingCodeEdit(QWidget *parent)
     : QPlainTextEdit(parent), m_tabCharSize(4), m_indentWidth(4),
@@ -436,6 +439,49 @@ bool WingCodeEdit::autoIndent() const {
     return m_config.testFlag(WingCodeEditConfig::AutoIndent);
 }
 
+void WingCodeEdit::setIndentationStrategy(IndentationStrategy strategy) {
+    m_indentationStrategy = std::move(strategy);
+}
+
+void WingCodeEdit::reindentCurrentLine() {
+    if (!autoIndent() || isReadOnly() || !m_indentationStrategy) {
+        return;
+    }
+    auto cursor = textCursor();
+    if (cursor.hasSelection()) {
+        return;
+    }
+    const auto block = cursor.block();
+    const int start = blockTextStart(block);
+    if (start < 0 || cursor.positionInBlock() < start) {
+        return;
+    }
+    const auto result = m_indentationStrategy(
+        {*this, cursor, start, IndentationTrigger::TextInput});
+    if (!result || !std::all_of(result->cbegin(), result->cend(), [](QChar ch) {
+            return ch == QLatin1Char(' ') || ch == QLatin1Char('\t');
+        })) {
+        return;
+    }
+    const auto text = block.text();
+    int end = start;
+    while (end < text.size() && (text.at(end) == QLatin1Char(' ') ||
+                                 text.at(end) == QLatin1Char('\t'))) {
+        ++end;
+    }
+    if (text.sliced(start, end - start) == *result ||
+        cursor.positionInBlock() < end) {
+        return;
+    }
+    QTextCursor edit(block);
+    edit.beginEditBlock();
+    edit.setPosition(block.position() + start);
+    edit.setPosition(block.position() + end, QTextCursor::KeepAnchor);
+    edit.insertText(*result);
+    edit.endEditBlock();
+    setTextCursor(cursor);
+}
+
 void WingCodeEdit::setShowLongLineEdge(bool show) {
     m_config.setFlag(WingCodeEditConfig::LongLineEdge, show);
     viewport()->update();
@@ -832,10 +878,12 @@ QString WingCodeEdit::cursorPrevChar(const QTextCursor &cursor) {
 
 QString WingCodeEdit::textUnderCursor() const {
     QTextCursor tc = textCursor();
-    auto pos = tc.columnNumber();
+    const auto pos = tc.columnNumber();
     tc.select(QTextCursor::LineUnderCursor);
-    auto text = tc.selectedText().left(pos);
-    return text.mid(text.lastIndexOf(' ') + 1);
+    const auto selected = tc.selectedText();
+    const auto text =
+        QStringView(selected).sliced(0, qMin(qsizetype(pos), selected.size()));
+    return text.sliced(text.lastIndexOf(QLatin1Char(' ')) + 1).toString();
 }
 
 bool WingCodeEdit::isAutoCloseChar(const QString &ch) const {
@@ -1060,18 +1108,17 @@ static BraceMatchResult findPrevBrace(QTextBlock block, int position) {
 
 void WingCodeEdit::updateCursor() {
     m_braceMatch.clear();
+    const auto currentCursor = textCursor();
 
     if (matchBraces()) {
-        QTextCursor cursor = textCursor();
+        auto cursor = currentCursor;
         cursor.clearSelection();
         const QString blockText = cursor.block().text();
         const int blockPos = cursor.positionInBlock();
-        const QChar chPrev = (blockPos > 0)
-                                 ? blockText[cursor.positionInBlock() - 1]
-                                 : QLatin1Char(0);
-        const QChar chNext = (blockPos < blockText.size())
-                                 ? blockText[cursor.positionInBlock()]
-                                 : QLatin1Char(0);
+        const QChar chPrev =
+            (blockPos > 0) ? blockText[blockPos - 1] : QLatin1Char(0);
+        const QChar chNext = (blockPos < blockText.size()) ? blockText[blockPos]
+                                                           : QLatin1Char(0);
         BraceMatchResult match;
         if (isOpenBrace(chNext)) {
             match = findNextBrace(cursor.block(), blockPos);
@@ -1088,7 +1135,6 @@ void WingCodeEdit::updateCursor() {
             selection.cursor.movePosition(QTextCursor::NextCharacter,
                                           QTextCursor::KeepAnchor);
             m_braceMatch.append(selection);
-            selection.cursor = textCursor();
             selection.cursor.setPosition(match.position);
             selection.cursor.movePosition(QTextCursor::NextCharacter,
                                           QTextCursor::KeepAnchor);
@@ -1099,18 +1145,20 @@ void WingCodeEdit::updateCursor() {
     updateExtraSelections();
 
     // Ensure the block containing cursor is fully unfolded
-    QTextBlock cursorBlock = textCursor().block();
+    auto cursorBlock = currentCursor.block();
     if (!cursorBlock.isVisible()) {
         QTextBlock block = cursorBlock.previous();
         QStack<QTextBlock> foldStack;
         while (block.isValid()) {
             if (WingSyntaxHighlighter::isFolded(block) &&
-                m_highlighter->foldContains(block, cursorBlock))
+                m_highlighter->foldContains(block, cursorBlock)) {
                 foldStack << block;
+            }
             block = block.previous();
         }
-        while (!foldStack.isEmpty())
+        while (!foldStack.isEmpty()) {
             m_highlighter->unfoldBlock(foldStack.pop());
+        }
         WingSyntaxHighlighter::hideBlock(cursorBlock, false);
         updateScrollBars();
     }
@@ -1177,18 +1225,24 @@ void WingCodeEdit::indentSelection() {
 
     const int startPos = cursor.selectionStart();
     cursor.setPosition(cursor.selectionEnd());
-    const int endBlock = (cursor.position() == cursor.block().position())
-                             ? cursor.blockNumber() - 1
-                             : cursor.blockNumber();
+    const int endBlock =
+        (cursor.positionInBlock() == qMax(0, blockTextStart(cursor.block())))
+            ? cursor.blockNumber() - 1
+            : cursor.blockNumber();
     cursor.setPosition(startPos);
     do {
         int startOfLine = 0;
-        const QString blockText = cursor.block().text();
+        const auto block = cursor.block();
+        const auto prefix = blockTextStart(block);
+        if (prefix < 0) {
+            break;
+        }
+        const QString blockText = block.text().sliced(prefix);
         const int leadingIndent =
             m_highlighter->leadingIndentation(blockText, &startOfLine);
 
         if (!blockText.isEmpty()) {
-            cursor.movePosition(QTextCursor::StartOfLine);
+            cursor.setPosition(block.position() + prefix);
             cursor.movePosition(QTextCursor::NextCharacter,
                                 QTextCursor::KeepAnchor, startOfLine);
             cursor.removeSelectedText();
@@ -1207,8 +1261,9 @@ void WingCodeEdit::indentSelection() {
             }
         }
 
-        if (!cursor.movePosition(QTextCursor::NextBlock))
+        if (!cursor.movePosition(QTextCursor::NextBlock)) {
             break;
+        }
     } while (cursor.blockNumber() <= endBlock);
 
     cursor.endEditBlock();
@@ -1220,17 +1275,23 @@ void WingCodeEdit::outdentSelection() {
 
     const int startPos = cursor.selectionStart();
     cursor.setPosition(cursor.selectionEnd());
-    const int endBlock = (cursor.position() == cursor.block().position())
-                             ? cursor.blockNumber() - 1
-                             : cursor.blockNumber();
+    const int endBlock =
+        (cursor.positionInBlock() == qMax(0, blockTextStart(cursor.block())))
+            ? cursor.blockNumber() - 1
+            : cursor.blockNumber();
     cursor.setPosition(startPos);
     do {
         int startOfLine = 0;
-        const QString blockText = cursor.block().text();
+        const auto block = cursor.block();
+        const auto prefix = blockTextStart(block);
+        if (prefix < 0) {
+            break;
+        }
+        const QString blockText = block.text().sliced(prefix);
         const int leadingIndent =
             m_highlighter->leadingIndentation(blockText, &startOfLine);
 
-        cursor.movePosition(QTextCursor::StartOfLine);
+        cursor.setPosition(block.position() + prefix);
         cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
                             startOfLine);
         cursor.removeSelectedText();
@@ -1250,8 +1311,9 @@ void WingCodeEdit::outdentSelection() {
             }
         }
 
-        if (!cursor.movePosition(QTextCursor::NextBlock))
+        if (!cursor.movePosition(QTextCursor::NextBlock)) {
             break;
+        }
     } while (cursor.blockNumber() <= endBlock);
 
     cursor.endEditBlock();
@@ -1380,38 +1442,27 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
     }
 
     switch (e->key()) {
-    case Qt::Key_Tab:
-        if (textCursor().hasSelection()) {
+    case Qt::Key_Tab: {
+        auto cursor = textCursor();
+        if (cursor.hasSelection()) {
             indentSelection();
         } else if (m_indentationMode == IndentationMode::IndentTabs) {
-            textCursor().insertText(QStringLiteral("\t"));
-        } else if (m_indentationMode == IndentationMode::IndentSpaces) {
-            QTextCursor cursor = textCursor();
-            const QString blockText = cursor.block().text();
-            const auto cursorText =
-                QStringView(blockText).left(cursor.positionInBlock());
-            int vpos = 0;
-            for (const auto ch : cursorText) {
-                if (ch == QLatin1Char('\t'))
-                    vpos += (m_tabCharSize - (vpos % m_tabCharSize));
-                else
-                    vpos += 1;
-            }
-            const int spaces = m_indentWidth - (vpos % m_indentWidth);
-            cursor.insertText(QString(spaces, QLatin1Char(' ')));
+            cursor.insertText(QStringLiteral("\t"));
         } else {
-            QTextCursor cursor = textCursor();
-            const QString blockText = cursor.block().text();
-            const auto cursorText =
-                QStringView(blockText).left(cursor.positionInBlock());
+            const auto block = cursor.block();
+            const auto blockText = block.text();
+            const auto start =
+                qBound(0, blockTextStart(block), cursor.positionInBlock());
+            const auto cursorText = QStringView(blockText).sliced(
+                start, cursor.positionInBlock() - start);
             int vpos = 0, cpos = 0;
             int wsvStart = 0, wscStart = 0;
             for (const auto ch : cursorText) {
-                cpos += 1;
+                ++cpos;
                 if (ch == QLatin1Char('\t')) {
-                    vpos += (m_tabCharSize - (vpos % m_tabCharSize));
+                    vpos += m_tabCharSize - (vpos % m_tabCharSize);
                 } else {
-                    vpos += 1;
+                    ++vpos;
                     if (ch != QLatin1Char(' ')) {
                         wsvStart = vpos;
                         wscStart = cpos;
@@ -1419,28 +1470,34 @@ void WingCodeEdit::keyPressEvent(QKeyEvent *e) {
                 }
             }
 
-            // Fix up only the current block of whitespace up to the
-            // cursor position.  This most closely matches vim's mixed
-            // indentation (softtabstop+noexpandtab)
-            cursor.beginEditBlock();
-            cursor.movePosition(QTextCursor::PreviousCharacter,
-                                QTextCursor::KeepAnchor, cpos - wscStart);
-            cursor.removeSelectedText();
+            if (m_indentationMode == IndentationMode::IndentSpaces) {
+                const int spaces = m_indentWidth - (vpos % m_indentWidth);
+                cursor.insertText(QString(spaces, QLatin1Char(' ')));
+            } else {
+                // Replace only the trailing whitespace, matching vim's
+                // softtabstop+noexpandtab behavior.
+                cursor.beginEditBlock();
+                cursor.movePosition(QTextCursor::PreviousCharacter,
+                                    QTextCursor::KeepAnchor, cpos - wscStart);
+                cursor.removeSelectedText();
 
-            const int indentTo = vpos + m_indentWidth - (vpos % m_indentWidth);
-            vpos = wsvStart;
-            const int alignTo = m_tabCharSize - (vpos % m_tabCharSize);
-            if (vpos + alignTo <= indentTo) {
-                cursor.insertText(QStringLiteral("\t"));
-                vpos += alignTo;
+                const int indentTo =
+                    vpos + m_indentWidth - (vpos % m_indentWidth);
+                vpos = wsvStart;
+                const int alignTo = m_tabCharSize - (vpos % m_tabCharSize);
+                if (vpos + alignTo <= indentTo) {
+                    cursor.insertText(QStringLiteral("\t"));
+                    vpos += alignTo;
+                }
+                const int tabs = (indentTo - vpos) / m_tabCharSize;
+                const int spaces = (indentTo - vpos) % m_tabCharSize;
+                cursor.insertText(QString(tabs, QLatin1Char('\t')));
+                cursor.insertText(QString(spaces, QLatin1Char(' ')));
+                cursor.endEditBlock();
             }
-            const int tabs = (indentTo - vpos) / m_tabCharSize;
-            const int spaces = (indentTo - vpos) % m_tabCharSize;
-            cursor.insertText(QString(tabs, QLatin1Char('\t')));
-            cursor.insertText(QString(spaces, QLatin1Char(' ')));
-            cursor.endEditBlock();
         }
         break;
+    }
 
     case Qt::Key_Backtab:
         outdentSelection();
@@ -1653,15 +1710,15 @@ bool WingCodeEdit::processCompletionEnd(QKeyEvent *e) {
             return true;
         }
 
-        if (e->text().isEmpty() || m_completer->wordSeperators().contains(
-                                       completionContent.right(1))) {
+        if (e->text().isEmpty() ||
+            m_completer->wordSeperators().contains(completionContent.back())) {
             m_completer->popup()->hide();
             return true;
         }
 
         auto triggers = m_completer->triggerList();
         auto r = std::find_if(triggers.cbegin(), triggers.cend(),
-                              [completionContent](const QString &trigger) {
+                              [&completionContent](const QString &trigger) {
                                   return completionContent.endsWith(trigger);
                               });
 
@@ -1673,9 +1730,8 @@ bool WingCodeEdit::processCompletionEnd(QKeyEvent *e) {
             }
             m_completer->trigger({}, completionContent, currect);
         } else {
-            auto t = *r;
-            completionContent.remove(completionContent.length() - t.length(),
-                                     t.length());
+            const auto &t = *r;
+            completionContent.truncate(completionContent.length() - t.length());
             m_completer->trigger(t, completionContent, currect);
         }
     }
@@ -1683,15 +1739,20 @@ bool WingCodeEdit::processCompletionEnd(QKeyEvent *e) {
 }
 
 void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
+    const auto text = e->text();
+    const bool reindent = autoIndent() && !isReadOnly() &&
+                          m_indentationStrategy && !text.isEmpty() &&
+                          text.front().isPrint();
+    auto cursor = textCursor();
+    if (reindent) {
+        cursor.beginEditBlock();
+    }
     if (autoCloseChar()) {
-        auto text = e->text();
         if (isAutoCloseChar(text)) {
-            QTextCursor cursor = textCursor();
             if (cursor.hasSelection()) {
-                QString content =
+                const auto content =
                     text + cursor.selectedText() + getPairedCloseChar(text);
                 cursor.beginEditBlock();
-                cursor.removeSelectedText();
                 cursor.insertText(content);
                 cursor.endEditBlock();
             } else {
@@ -1703,8 +1764,7 @@ void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
                     cursor.beginEditBlock();
                     cursor.insertText(text + getPairedCloseChar(text));
                     cursor.endEditBlock();
-                    cursor.movePosition(QTextCursor::PreviousCharacter,
-                                        QTextCursor::MoveAnchor);
+                    cursor.movePosition(QTextCursor::PreviousCharacter);
                     setTextCursor(cursor);
                 } else {
                     QPlainTextEdit::keyPressEvent(e);
@@ -1712,37 +1772,16 @@ void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
             }
         } else if (text == QStringLiteral("\"") ||
                    text == QStringLiteral("'")) {
-            QTextCursor cursor = textCursor();
             if (cursor.hasSelection()) {
                 auto selstart = getCursorPositionBlock(cursor.selectionStart())
                                     .blockNumber();
                 auto selend =
                     getCursorPositionBlock(cursor.selectionEnd()).blockNumber();
                 if (selstart == selend) {
-                    if (cursor.hasSelection()) {
-                        QString content = text + cursor.selectedText() + text;
-                        cursor.beginEditBlock();
-                        cursor.removeSelectedText();
-                        cursor.insertText(content);
-                        cursor.endEditBlock();
-                    } else {
-                        auto ch = cursorNextChar(cursor);
-                        if (ch == QStringLiteral("\"") ||
-                            ch == QStringLiteral("'")) {
-                            if (cursorPrevChar(cursor) ==
-                                QStringLiteral("\\")) {
-                                cursor.insertText(text);
-                            } else {
-                                cursor.movePosition(QTextCursor::NextCharacter);
-                                setTextCursor(cursor);
-                            }
-                        } else {
-                            cursor.insertText(text + text);
-                            cursor.movePosition(QTextCursor::PreviousCharacter,
-                                                QTextCursor::MoveAnchor);
-                            setTextCursor(cursor);
-                        }
-                    }
+                    const auto content = text + cursor.selectedText() + text;
+                    cursor.beginEditBlock();
+                    cursor.insertText(content);
+                    cursor.endEditBlock();
                 }
             } else {
                 auto pchar = cursorPrevChar(cursor);
@@ -1754,8 +1793,7 @@ void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
                         cursor.insertText(text);
                     } else {
                         cursor.insertText(text + text);
-                        cursor.movePosition(QTextCursor::PreviousCharacter,
-                                            QTextCursor::MoveAnchor);
+                        cursor.movePosition(QTextCursor::PreviousCharacter);
                         setTextCursor(cursor);
                     }
                 }
@@ -1766,6 +1804,63 @@ void WingCodeEdit::processDefaultKeyPressEvent(QKeyEvent *e) {
     } else {
         QPlainTextEdit::keyPressEvent(e);
     }
+    if (reindent) {
+        reindentCurrentLine();
+        cursor.endEditBlock();
+    }
+}
+
+int WingCodeEdit::blockTextStart(const QTextBlock &block) const {
+    Q_UNUSED(block);
+    return 0;
+}
+
+QString WingCodeEdit::indentationForNewLine(const QTextCursor &cursor) const {
+    if (!autoIndent()) {
+        return {};
+    }
+    auto scan = cursor;
+    scan.setPosition(cursor.selectionStart());
+    auto block = scan.block();
+    const auto codeStart = blockTextStart(block);
+    if (m_indentationStrategy && codeStart >= 0 &&
+        scan.positionInBlock() >= codeStart) {
+        const auto result = m_indentationStrategy(
+            {*this, scan, codeStart, IndentationTrigger::NewLine});
+        if (result) {
+            const bool valid =
+                std::all_of(result->cbegin(), result->cend(), [](QChar ch) {
+                    return ch == QLatin1Char(' ') || ch == QLatin1Char('\t');
+                });
+            if (valid) {
+                return *result;
+            }
+        }
+    }
+    int end = scan.positionInBlock();
+    while (block.isValid()) {
+        const auto start = blockTextStart(block);
+        if (start < 0) {
+            break;
+        }
+        const auto blockText = block.text();
+        if (start > blockText.size()) {
+            break;
+        }
+        const auto text = QStringView(blockText).sliced(
+            start, qBound(qsizetype(0), qsizetype(end) - start,
+                          blockText.size() - start));
+        if (!text.isEmpty()) {
+            int length = 0;
+            while (length < text.size() && text.at(length).isSpace()) {
+                ++length;
+            }
+            return text.sliced(0, length).toString();
+        }
+        block = block.previous();
+        end = block.isValid() ? block.length() - 1 : 0;
+    }
+    return {};
 }
 
 bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
@@ -1828,46 +1923,26 @@ bool WingCodeEdit::processKeyShortcut(QKeyEvent *e) {
     // Handle newline insertion
     if (!isReadOnly() && e->matches(QKeySequence::InsertParagraphSeparator)) {
         QTextCursor cursor = textCursor();
+        const auto indent = indentationForNewLine(cursor);
         cursor.beginEditBlock();
 
         QPlainTextEdit::keyPressEvent(e);
 
-        // Simple auto-indent: Just copy the previous non-empty line's
-        // leading whitespace
-        if (autoIndent()) {
-            QTextCursor scanCursor = textCursor();
-            int startOfLine = 0;
-            while (scanCursor.blockNumber() > 0 && startOfLine == 0) {
-                scanCursor.movePosition(QTextCursor::PreviousBlock);
-
-                const QString blockText = scanCursor.block().text();
-                for (const auto ch : blockText) {
-                    if (ch.isSpace())
-                        startOfLine += 1;
-                    else
-                        break;
-                }
-                if (startOfLine == 0 && !blockText.isEmpty()) {
-                    // No leading whitespace, but line is not empty.
-                    // Therefore, current leading indent level is 0.
-                    break;
-                }
-            }
-            if (startOfLine != 0) {
-                const QString indentLine = scanCursor.block().text();
-                const QString leadingIndent = indentLine.left(startOfLine);
-                textCursor().insertText(leadingIndent);
-                if (indentLine.size() == startOfLine &&
-                    scanCursor.blockNumber() ==
-                        textCursor().blockNumber() - 1) {
-                    // We copied the previous blank (whitespace-only) line...
-                    // Now we can clear out that line to clean up unnecessary
-                    // trailing whitespace
-                    scanCursor.movePosition(QTextCursor::StartOfBlock);
-                    scanCursor.movePosition(QTextCursor::EndOfBlock,
-                                            QTextCursor::KeepAnchor);
-                    scanCursor.removeSelectedText();
-                }
+        if (!indent.isEmpty()) {
+            // The base handler moved the cursor and may have replaced a
+            // selection.
+            cursor = textCursor();
+            cursor.insertText(indent);
+            const auto previous = cursor.block().previous();
+            const auto prefix = blockTextStart(previous);
+            const auto previousText = previous.text();
+            if (prefix >= 0 && prefix <= previousText.size() &&
+                QStringView(previousText).sliced(prefix) == indent) {
+                QTextCursor cleanup(previous);
+                cleanup.setPosition(previous.position() + prefix);
+                cleanup.movePosition(QTextCursor::EndOfBlock,
+                                     QTextCursor::KeepAnchor);
+                cleanup.removeSelectedText();
             }
         }
         cursor.endEditBlock();
