@@ -1710,8 +1710,7 @@ bool WingCodeEdit::processCompletionEnd(QKeyEvent *e) {
             return true;
         }
 
-        if (e->text().isEmpty() ||
-            m_completer->wordSeperators().contains(completionContent.back())) {
+        if (e->text().isEmpty()) {
             m_completer->popup()->hide();
             return true;
         }
@@ -1723,17 +1722,23 @@ bool WingCodeEdit::processCompletionEnd(QKeyEvent *e) {
                               });
 
         auto currect = cursorRect();
-        if (r == triggers.cend()) {
-            if (completionContent.length() < m_completer->triggerAmount()) {
-                m_completer->popup()->hide();
-                return true;
-            }
-            m_completer->trigger({}, completionContent, currect);
-        } else {
+        if (r != triggers.cend()) {
             const auto &t = *r;
             completionContent.truncate(completionContent.length() - t.length());
             m_completer->trigger(t, completionContent, currect);
+            return false;
         }
+
+        if (m_completer->wordSeperators().contains(completionContent.back())) {
+            m_completer->popup()->hide();
+            return true;
+        }
+
+        if (completionContent.length() < m_completer->triggerAmount()) {
+            m_completer->popup()->hide();
+            return true;
+        }
+        m_completer->trigger({}, completionContent, currect);
     }
     return false;
 }
