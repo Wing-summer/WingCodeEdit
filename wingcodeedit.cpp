@@ -457,7 +457,7 @@ void WingCodeEdit::reindentCurrentLine() {
         return;
     }
     const auto result = m_indentationStrategy(
-        {*this, cursor, start, IndentationTrigger::TextInput});
+        {this, cursor, start, IndentationTrigger::TextInput});
     if (!result || !std::all_of(result->cbegin(), result->cend(), [](QChar ch) {
             return ch == QLatin1Char(' ') || ch == QLatin1Char('\t');
         })) {
@@ -1831,7 +1831,7 @@ QString WingCodeEdit::indentationForNewLine(const QTextCursor &cursor) const {
     if (m_indentationStrategy && codeStart >= 0 &&
         scan.positionInBlock() >= codeStart) {
         const auto result = m_indentationStrategy(
-            {*this, scan, codeStart, IndentationTrigger::NewLine});
+            {this, scan, codeStart, IndentationTrigger::NewLine});
         if (result) {
             const bool valid =
                 std::all_of(result->cbegin(), result->cend(), [](QChar ch) {

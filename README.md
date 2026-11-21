@@ -40,7 +40,7 @@ editor->setIndentationStrategy(
     [](const WingCodeEdit::IndentationContext &context)
         -> std::optional<QString> {
         // Select a host-provided language policy using
-        // context.editor.highlighter()->definition().indenter().
+        // context.editor->highlighter()->definition().indenter().
         // Include wingsyntaxhighlighter.h and KSyntaxHighlighting/Definition
         // when accessing the syntax definition.
         return std::nullopt;

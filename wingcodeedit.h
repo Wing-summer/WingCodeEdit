@@ -49,7 +49,7 @@ public:
     Q_ENUM(IndentationTrigger)
 
     struct IndentationContext {
-        const WingCodeEdit &editor;
+        const WingCodeEdit *editor;
         // Before newline insertion, or after typing for current-line policies.
         QTextCursor cursor;
         // Offset past a non-code prefix in the current block.
